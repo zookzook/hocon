@@ -8,7 +8,6 @@ Parse HOCON configuration files in Elixir following the HOCON specifications.
 [![Hex.pm](https://img.shields.io/hexpm/dw/hocon.svg)](https://hex.pm/packages/hocon)
 [![Hex.pm](https://img.shields.io/hexpm/dd/hocon.svg)](https://hex.pm/packages/hocon)
 
-
 ## Spec Coverage
 
 https://github.com/lightbend/config/blob/master/HOCON.md
@@ -21,7 +20,7 @@ https://github.com/lightbend/config/blob/master/HOCON.md
 - [x] whitespace
 - [ ] duplicate keys and object merging
 - [x] unquoted strings
-- [ ] multi-line strings
+- [x] multi-line strings
 - [x] value concatenation
 - [ ] object concatenation
 - [ ] array concatenation

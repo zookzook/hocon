@@ -46,6 +46,13 @@ defmodule TokenizerTest do
                   {:unquoted_string, "unquoted"}, :ws, {:unquoted_string, "string"}]} == Tokenizer.decode(~s(this is a unquoted string))
   end
 
+  test "multi-line strings" do
+    assert {:ok, [string: "the answer is 42"]} == Tokenizer.decode(~s("""the answer is 42"""))
+    assert {:ok, [string: "the answer is 42\n   * this\n    * is\n    * a\n   * test!"]} == Tokenizer.decode(~s("""the answer is 42\n   * this\n    * is\n    * a\n   * test!"""))
+    assert {:ok, [string: "\"the answer is 42\""]} == Tokenizer.decode(~s(""""the answer is 42""""))
+    assert {:ok, [string: "\"\"the answer is 42\"\""]} == Tokenizer.decode(~s("""""the answer is 42"""""))
+  end
+
   test "unquoted strings" do
     assert {:ok, [{:unquoted_string, "this"}, :open_square, :close_square, {:unquoted_string, "string"}]} == Tokenizer.decode(~s(this [] string))
     assert {:ok, [{:unquoted_string, "path/to/file"}]} == Tokenizer.decode(~s(/path/to/file))

@@ -60,7 +60,7 @@ defmodule Hocon.Tokenizer do
     tokenize(rest, original, skip + 1, Tokens.push(tokens, :colon))
   end
   def tokenize(<<"\"", rest::bits>>, original, skip, tokens) do
-    string(rest, 0, original, skip + 1, tokens)
+    multi_line_string_start(rest, original, skip + 1, tokens, 0)
   end
   def tokenize(<<"0", rest::bits>>, original, skip, tokens) do
     number_zero(rest, original, skip, tokens, 1)
@@ -72,47 +72,79 @@ defmodule Hocon.Tokenizer do
     number_minus(rest, original, skip, tokens)
   end
   def tokenize(string, original, skip, tokens) do
-    unquoted_string(string, 0, original, skip, tokens)
+    unquoted_string(string, original, skip, tokens, 0)
   end
 
+  ##
+  # check for multi-line strings
+  ##
+  def multi_line_string_start(<<"\"\"", rest::bits>>, original, skip, tokens, len) do
+    multi_line_string(rest, original, skip + 2, tokens, len)
+  end
+  def multi_line_string_start(string, original, skip, tokens, len) do
+    string(string, original, skip, tokens, len)
+  end
+  def multi_line_string(<<"\"\"\"", rest::bits>>, original, skip, tokens, len) do
+    case rest do
+      <<"\"", _::bits>> -> multi_line_string_end(rest, original, skip, tokens, len)
+      _ ->
+        str = String.trim(binary_part(original, skip, len))
+        tokenize(rest, original, skip + len + 3, Tokens.push(tokens, {:string, str}))
+    end
+  end
+  def multi_line_string(<<_char::utf8, rest::bits>>, original, skip, tokens, len) do
+    multi_line_string(rest, original, skip, tokens, len + 1)
+  end
 
-  def string(<<"\"", rest::bits>>, len, original, skip, tokens) do
+  def multi_line_string_end(<<"\"", rest::bits>>, original, skip, tokens, len) do
+    multi_line_string_end(rest, original, skip, tokens, len + 1)
+  end
+  def multi_line_string_end(<<_char::utf8, _rest::bits>> = string, original, skip, tokens, len) do
+    str = String.trim(binary_part(original, skip, len))
+    tokenize(string, original, skip + len, Tokens.push(tokens, {:string, str}))
+  end
+  def multi_line_string_end("", original, skip, tokens, len) do
+    str = String.trim(binary_part(original, skip, len))
+    tokenize("", original, skip + len, Tokens.push(tokens, {:string, str}))
+  end
+
+  def string(<<"\"", rest::bits>>, original, skip, tokens, len) do
     str = String.trim(binary_part(original, skip, len))
     tokenize(rest, original, skip + len + 1, Tokens.push(tokens, {:string, str}))
   end
-  def string(<<_char::utf8, rest::bits>>, len, original, skip, tokens) do
-    string(rest, len + 1, original, skip, tokens)
+  def string(<<_char::utf8, rest::bits>>, original, skip, tokens, len) do
+    string(rest, original, skip, tokens, len + 1)
   end
 
-  def unquoted_string(<<"/", rest::bits>> = string, len, original, skip, tokens) do
+  def unquoted_string(<<"/", rest::bits>> = string, original, skip, tokens, len) do
     case rest do
-      <<"/", rest::bits>> ->
+      <<"/", _rest::bits>> ->
         str = String.trim(binary_part(original, skip, len))
         tokenize(string, original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
-      _ -> unquoted_string(rest, len + 1, original, skip, tokens)
+      _ -> unquoted_string(rest, original, skip, tokens, len + 1)
     end
   end
-  def unquoted_string(<<char::utf8, rest::bits>>, len, original, skip, tokens) when char in '\s\n\t\r\v' do
+  def unquoted_string(<<char::utf8, rest::bits>>, original, skip, tokens, len) when char in '\s\n\t\r\v' do
     str = String.trim(binary_part(original, skip, len))
     tokenize(<<char::utf8, rest::bits>>, original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
   end
-  def unquoted_string(<<char::utf8, rest::bits>>, len, original, skip, tokens) when char in '$"{}[]:=,+#`^?!@*&\\' do
+  def unquoted_string(<<char::utf8, rest::bits>>, original, skip, tokens, len) when char in '$"{}[]:=,+#`^?!@*&\\' do
     str = String.trim(binary_part(original, skip, len))
     tokenize(<<char::utf8, rest::bits>>, original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
   end
-  def unquoted_string(<<"true", rest::bits>>, 0, original, skip, tokens) do
+  def unquoted_string(<<"true", rest::bits>>, original, skip, tokens, 0) do
     tokenize(rest, original, skip + 4, Tokens.push(tokens, true))
   end
-  def unquoted_string(<<"null", rest::bits>>, 0, original, skip, tokens) do
+  def unquoted_string(<<"null", rest::bits>>, original, skip, tokens, 0) do
     tokenize(rest, original, skip + 4, Tokens.push(tokens, nil))
   end
-  def unquoted_string(<<"false", rest::bits>>, 0, original, skip, tokens) do
+  def unquoted_string(<<"false", rest::bits>>, original, skip, tokens, 0) do
     tokenize(rest, original, skip + 5, Tokens.push(tokens, false))
   end
-  def unquoted_string(<<_char::utf8, rest::bits>>, len, original, skip, tokens) do
-    unquoted_string(rest, len + 1, original, skip, tokens)
+  def unquoted_string(<<_char::utf8, rest::bits>>, original, skip, tokens, len) do
+    unquoted_string(rest, original, skip, tokens, len + 1)
   end
-  def unquoted_string("", len, original, skip, tokens) do
+  def unquoted_string("", original, skip, tokens, len) do
     str = String.trim(binary_part(original, skip, len))
     tokenize("", original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
   end
