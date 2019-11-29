@@ -1,6 +1,13 @@
 # hocon
 Parse HOCON configuration files in Elixir following the HOCON specifications.
 
+[![Build Status](https://travis-ci.org/zookzook/hocon.svg?branch=master)](https://travis-ci.org/zookzook/hocon)
+[![Hex.pm](https://img.shields.io/hexpm/v/hocon.svg)](https://hex.pm/packages/hocon)
+[![Hex.pm](https://img.shields.io/hexpm/dt/hocon.svg)](https://hex.pm/packages/hocon)
+[![Hex.pm](https://img.shields.io/hexpm/dw/hocon.svg)](https://hex.pm/packages/hocon)
+[![Hex.pm](https://img.shields.io/hexpm/dd/hocon.svg)](https://hex.pm/packages/hocon)
+
+
 ## Spec Coverage
 
 https://github.com/lightbend/config/blob/master/HOCON.md
