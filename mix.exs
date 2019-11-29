@@ -7,6 +7,7 @@ defmodule Hocon.MixProject do
     [
       app: :hocon,
       version: @version,
+      name: "hocon",
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -28,9 +29,8 @@ defmodule Hocon.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:nimble_parsec, "~> 0.5.2"},
       {:excoveralls, "~> 0.12.1", only: :test},
-      {:ex_doc, "~> 0.18", only: :docs}
+      {:ex_doc, "~> 0.18", only: :dev, runtime: false}
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
