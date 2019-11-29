@@ -63,4 +63,9 @@ defmodule HoconTest do
 
   end
 
+  test "Parse json" do
+    assert {:ok, %{"foo" => %{ "baz" => "bar"}}} == Parser.decode(~s({"foo": { "baz" : "bar"} }))
+  end
+
+
 end
