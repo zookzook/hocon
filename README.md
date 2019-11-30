@@ -22,13 +22,13 @@ https://github.com/lightbend/config/blob/master/HOCON.md
 - [x] unquoted strings
 - [x] multi-line strings
 - [x] value concatenation
-- [ ] object concatenation
-- [ ] array concatenation
+- [x] object concatenation
+- [x] array concatenation
 - [x] path expressions
-- [ ] path as keys
+- [x] path as keys
 - [ ] substitutions
 - [ ] includes
-- [ ] conversion of numerically-indexed objects to arrays
+- [x] conversion of numerically-indexed objects to arrays
 - [ ] allow URL for included files
 - [ ] duration unit format
 - [ ] period unit format

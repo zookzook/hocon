@@ -44,4 +44,62 @@ defmodule Hocon.Document do
     Map.put(root, key, value)
   end
 
+  def merge(%Document{root: this}, %Document{root: that}) do
+    %Document{root: Map.merge(this, that)}
+  end
+
+  def convert(%Document{root: this}, opts \\ []) do
+    convert_map(this, %{}, opts)
+  end
+
+  def convert_map(original, result, opts) do
+    Map.to_list(original)
+    |> Enum.map(fn {key, value} -> convert_numerically_indexed(key, value, opts) end)
+    |> Enum.into(result)
+  end
+
+  def convert_numerically_indexed(key, value, opts) when is_map(value) do
+
+    case Keyword.get(opts, :convert_numerically_indexed, false) do
+      true ->
+        case convert_to_array(value, opts) do
+          {:converted, array } -> {key, array}
+          _                    -> {key, value}
+        end
+      false -> {key, value}
+    end
+
+  end
+  def convert_numerically_indexed(key, value, _opts) do
+    {key, value}
+  end
+  def convert_to_array(root, opts) do
+
+    is_strict = Keyword.get(opts, :strict_conversion, true)
+
+    convertable = case is_strict do
+      true  -> root
+               |> Map.keys()
+               |> Enum.all?(fn key -> String.match?(key, ~r/^\d$/) end)
+      false -> root
+               |> Map.keys()
+               |> Enum.any?(fn key -> String.match?(key, ~r/^\d$/) end)
+    end
+
+    case convertable do
+      true  -> {:converted, to_array(root)}
+      false -> :not_converted
+    end
+
+  end
+
+  defp to_array(map) do
+    map
+    |> Map.to_list()
+    |> Enum.filter(fn {key, _} -> String.match?(key, ~r/^\d$/) end)
+    |> Enum.map(fn {key, value} -> {String.to_integer(key), value} end)
+    |> Enum.sort(fn a, b -> elem(a, 0) < elem(b, 0) end)
+    |> Enum.map(fn {_,value} -> value end)
+  end
+
 end

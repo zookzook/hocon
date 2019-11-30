@@ -57,10 +57,12 @@ defmodule HoconTest do
     assert {:ok, %{"a" => %{"b" => %{"c" => 1}}}} == Parser.decode(<<0xEF, 0xBB, 0xBF>> <> ~s(a : { b : { c : 1 }}))
   end
 
-  test "Parse path expressions" do
-
+  test "Parse paths as keys" do
     assert {:ok, %{"foo" => %{"bar" => 42}}} == Parser.decode(~s(foo.bar : 42))
-
+    assert {:ok, %{"foo" => %{"bar" => %{"baz" => 42}}}} == Parser.decode(~s(foo.bar.baz : 42))
+    assert {:ok, %{"3" => 42}} == Parser.decode(~s(3 : 42))
+    assert {:ok, %{"true" => 42}} == Parser.decode(~s(true : 42))
+    assert {:ok, %{"3" => %{"14" => 42}}} == Parser.decode(~s(3.14 : 42))
   end
 
   test "Parse json" do
@@ -72,4 +74,15 @@ defmodule HoconTest do
     assert {:ok, %{"foo" => %{"b" => 43}}} == Parser.decode(~s({"foo" : { "a" : 42 }, "foo" : null, "foo" : { "b" : 43 }}))
   end
 
+  test "object concatenation" do
+    assert {:ok, %{"a" => %{"b" => 1, "c" => 2}}} == Parser.decode(~s(a : { b : 1 } { c : 2 }))
+    assert {:ok, %{"a" => %{"b" => 1, "c" => 2, "d" => 3}}} == Parser.decode(~s(a : { b : 1 } { c : 2 } { d : 3 }))
+    assert {:ok, %{"a" => %{"b" => 1, "c" => 2}}} == Parser.decode(~s(a : { b : 1 }\na : { c : 2 }))
+  end
+
+  test "array concatenation" do
+     assert {:ok, %{"a" => [1, 2, 3, 4]}} == Parser.decode(~s(a : [ 1, 2 ] [ 3, 4 ]))
+     assert {:ok, %{"a" => [[1, 2, 3, 4]]}} == Parser.decode(~s(a : [ [ 1, 2 ] [ 3, 4 ] ]))
+     assert {:ok, %{"a" => [[1, 2], [3, 4]]}} == Parser.decode(~s(a : [ [ 1, 2 ]\n[ 3, 4 ] ]))
+  end
 end

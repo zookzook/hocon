@@ -3,7 +3,18 @@ defmodule Hocon.Parser do
   alias Hocon.Tokenizer
   alias Hocon.Document
 
-  def decode(string) do
+  @doc"""
+
+  Parses and decodes a hocon string and returns a map
+
+  ## options
+
+    * `:convert_numerically_indexed` - if set to true then numerically-indexed objects are converted to arrays
+    * `:strict_conversion` - if set to `true` then numerically-indexed objects are only converted to arrays
+       if all keys are numbers
+
+  """
+  def decode(string, opts \\ []) do
 
     with {:ok, ast} <- Tokenizer.decode(string) do
 
@@ -11,9 +22,10 @@ defmodule Hocon.Parser do
       #IO.puts "\n\nFixed ast #{inspect contact_rule(ast, [])}"
 
       with {[], result } <- ast
-      |> contact_rule([])
-      |> parse_root() do
-        {:ok, result.root}
+                            |> contact_rule([])
+                            |> parse_root(),
+                result   <- Document.convert(result) do
+        {:ok, result}
       end
     end
   end
@@ -76,7 +88,7 @@ defmodule Hocon.Parser do
     {[], result}
   end
   defp parse_object([:close_curly | rest], result, false) do
-    {rest, result}
+    try_merge_object(rest, result)
   end
   defp parse_object([:comma | rest], result, root) do
     parse_object(rest, result, root)
@@ -92,18 +104,38 @@ defmodule Hocon.Parser do
     {rest, value} = parse(rest)
     parse_object(rest, Document.put(result, key, value), root)
   end
+  defp parse_object([key, :open_curly | rest], result, root) do
+    {rest, value} = parse_object(rest, Document.new())
+    parse_object(rest, Document.put(result, to_string(key), value), root)
+  end
+  defp parse_object([key, :colon | rest], result, root) do
+    {rest, value} = parse(rest)
+    parse_object(rest, Document.put(result, to_string(key), value), root)
+  end
+
+  def try_merge_object([:open_curly | rest] = tokens, result) do
+    with {rest, other} <- parse_object(rest, Document.new()) do
+         {rest, Document.merge(result, other)}
+     end
+  end
+  def try_merge_object([:nl | rest], result) do
+    {rest, result}
+  end
+  def try_merge_object(tokens, result) do
+    {tokens, result}
+  end
 
   defp parse_array([:close_square| rest], result) do
-    {rest, Enum.reverse(result)}
+    try_concat_array(rest, Enum.reverse(result))
   end
   defp parse_array([:comma, :close_square | rest], result) do
-    {rest, Enum.reverse(result)}
+    try_concat_array(rest, Enum.reverse(result))
   end
   defp parse_array([:comma | rest], result) do
     parse_array(rest, result)
   end
   defp parse_array([:nl, :close_square | rest], result) do
-    {rest, Enum.reverse(result)}
+    try_concat_array(rest, Enum.reverse(result))
   end
   defp parse_array([:nl | rest], result) do
     parse_array(rest, result)
@@ -111,6 +143,18 @@ defmodule Hocon.Parser do
   defp parse_array(value, result) do
     {rest, value} = parse(value)
     parse_array(rest, [value | result])
+  end
+
+  def try_concat_array([:open_square | rest] = tokens, result) do
+    with {rest, other} <- parse_array(rest, []) do
+      {rest, result ++ other}
+    end
+  end
+  def try_concat_array([:nl | rest], result) do
+    {rest, result}
+  end
+  def try_concat_array(tokens, result) do
+    {tokens, result}
   end
 
 end
