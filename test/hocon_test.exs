@@ -5,15 +5,15 @@ defmodule HoconTest do
   alias Hocon.Parser
   alias Hocon.Tokenizer
 
-#  test "file" do
-#
-#    {:ok, body} = File.read("./test/data/comments.conf")
-#    result = Parser.run(body)
-#
-#    IO.puts "Ergebnis: \n\n#{inspect result}"
-#
-#    assert true
-#  end
+  test "file" do
+
+    {:ok, body} = File.read("./test/data/my-configuration.conf")
+    result = Parser.decode(body)
+
+    IO.puts inspect result
+
+    assert true
+  end
 
   test "Parse missing root curlys" do
     assert {:ok, %{"key" => "value"}} == Parser.decode(~s(#test missing root curlys\n{key = value}))
