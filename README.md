@@ -18,7 +18,7 @@ https://github.com/lightbend/config/blob/master/HOCON.md
 - [x] key-value separator
 - [x] commas are optional if newline is present
 - [x] whitespace
-- [ ] duplicate keys and object merging
+- [x] duplicate keys and object merging
 - [x] unquoted strings
 - [x] multi-line strings
 - [x] value concatenation

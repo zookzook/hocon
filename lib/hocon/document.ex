@@ -22,11 +22,26 @@ defmodule Hocon.Document do
     %Document{root: put_path(root, path, value)}
   end
 
+  def put_path(root, [key], nil) do
+    with {_, result} <- Map.pop(root, key) do
+      result
+    end
+  end
   def put_path(root, [key], value) do
-    Map.put(root, key, value)
+    case Map.get(root, key) do
+      nil   -> Map.put(root, key, value)
+      other -> merge(root, key, other, value)
+    end
   end
   def put_path(root, [head|tail], value) do
     Map.put(root, head, put_path(Map.get(root, head, %{}), tail, value))
+  end
+
+  def merge(root, key, %{} = original, %{} = value) do
+    Map.put(root, key, Map.merge(original, value))
+  end
+  def merge(root, key, _original, value) do
+    Map.put(root, key, value)
   end
 
 end

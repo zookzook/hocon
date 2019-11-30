@@ -34,5 +34,17 @@ defmodule DocumentTest do
     assert  %{"a" => %{"b" => %{"c" => "foo", "d" => "bar"}}, "b" => %{"x" => "foo", "y" => "bar"}}== result.root
   end
 
+  test "object merging" do
+    result = Document.new()
+             |> Document.put("foo.a", "42")
+             |> Document.put("foo.b", "43")
+    assert  %{"foo" => %{"a" => "42", "b" => "43"}} == result.root
+    result = Document.new()
+             |> Document.put("foo.a", "42")
+             |> Document.put("foo.a", nil)
+             |> Document.put("foo.b", "43")
+    assert  %{"foo" => %{ "b" => "43"}} == result.root
+  end
+
 
 end

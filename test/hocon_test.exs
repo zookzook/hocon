@@ -67,5 +67,9 @@ defmodule HoconTest do
     assert {:ok, %{"foo" => %{ "baz" => "bar"}}} == Parser.decode(~s({"foo": { "baz" : "bar"} }))
   end
 
+  test "object merging" do
+    assert {:ok, %{"foo" => %{"a" => 42, "b" => 43}}} == Parser.decode(~s({"foo" : { "a" : 42 }, "foo" : { "b" : 43 }}))
+    assert {:ok, %{"foo" => %{"b" => 43}}} == Parser.decode(~s({"foo" : { "a" : 42 }, "foo" : null, "foo" : { "b" : 43 }}))
+  end
 
 end
