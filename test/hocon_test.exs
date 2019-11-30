@@ -36,9 +36,11 @@ defmodule HoconTest do
   end
 
   test "Parse simple array" do
+    assert {:ok, %{"a" => [1, 2, 3, 4]}} == Parser.decode(~s( a = [1,2,3,4,]))
     assert {:ok, %{"a" => [1, 2, 3, 4]}} == Parser.decode(~s( a = [1,2,3,4]))
     assert {:ok, %{"a" => ["1 2 3 4"]}} == Parser.decode(~s( a = [1 2 3 4]))
     assert {:ok, %{"a" => [1, 2, 3, 4]}} == Parser.decode(~s( a = [1\n2\n3\n4]))
+    assert {:ok, %{"a" => [1, 2, 3, 4]}} == Parser.decode(~s( a = [1\n2\n3\n4\n]))
   end
 
   test "Parse simple object" do
@@ -50,6 +52,8 @@ defmodule HoconTest do
   test "Parse nested objects" do
     assert {:ok, %{"a" => %{"b" => %{"c" => 1}}}} == Parser.decode(~s({a : { b : { c : 1 }}}))
     assert {:ok, %{"a" => %{"b" => %{"c" => 1}}}} == Parser.decode(~s({a { b { c : 1 }}}))
+    assert {:ok, %{"1" => %{"2" => %{"3" => 1}}}} == Parser.decode(~s({1 : { 2 : { 3 : 1 }}}))
+    assert {:ok, %{"1" => %{"2" => %{"3" => 1}}}} == Parser.decode(~s({1 { 2 { 3 : 1 }}}))
   end
 
   test "Parse configuration with BOM" do
