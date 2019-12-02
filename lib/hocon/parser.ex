@@ -24,7 +24,7 @@ defmodule Hocon.Parser do
       with {[], result } <- ast
                             |> contact_rule([])
                             |> parse_root(),
-                result   <- Document.convert(result) do
+                result   <- Document.convert(result, opts) do
         {:ok, result}
       end
     end
@@ -46,6 +46,15 @@ defmodule Hocon.Parser do
   end
   def contact_rule([int_a, :ws, int_b|rest], result) when is_number(int_a) and is_number(int_b) do
     contact_rule([{:unquoted_string, to_string(int_a) <> " " <> to_string(int_b)} | rest], result)
+  end
+  def contact_rule([{:unquoted_string, simple_a}, {:string, simple_b}|rest], result) do
+    contact_rule([{:unquoted_string, simple_a <> simple_b} | rest], result)
+  end
+  def contact_rule([{:string, simple_a}, {:unquoted_string, simple_b}|rest], result) do
+    contact_rule([{:unquoted_string, simple_a <> simple_b} | rest], result)
+  end
+  def contact_rule([{:string, simple_a}, {:string, simple_b}|rest], result) do
+    contact_rule([{:string, simple_a <> simple_b} | rest], result)
   end
   def contact_rule([other|rest], result) do
     contact_rule(rest, [other | result])
@@ -113,7 +122,7 @@ defmodule Hocon.Parser do
     parse_object(rest, Document.put(result, to_string(key), value), root)
   end
 
-  def try_merge_object([:open_curly | rest] = tokens, result) do
+  def try_merge_object([:open_curly | rest], result) do
     with {rest, other} <- parse_object(rest, Document.new()) do
          {rest, Document.merge(result, other)}
      end
@@ -145,7 +154,7 @@ defmodule Hocon.Parser do
     parse_array(rest, [value | result])
   end
 
-  def try_concat_array([:open_square | rest] = tokens, result) do
+  def try_concat_array([:open_square | rest], result) do
     with {rest, other} <- parse_array(rest, []) do
       {rest, result ++ other}
     end

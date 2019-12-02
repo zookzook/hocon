@@ -89,4 +89,17 @@ defmodule HoconTest do
      assert {:ok, %{"a" => [[1, 2, 3, 4]]}} == Parser.decode(~s(a : [ [ 1, 2 ] [ 3, 4 ] ]))
      assert {:ok, %{"a" => [[1, 2], [3, 4]]}} == Parser.decode(~s(a : [ [ 1, 2 ]\n[ 3, 4 ] ]))
   end
+
+  test "String concatenation" do
+    assert {:ok, %{"key" => "horse is my favorite animal"}} == Parser.decode(~s(key : horse " is my favorite animal"))
+    assert {:ok, %{"key" => "horse is my favorite animal"}} == Parser.decode(~s(key : "horse " "is my favorite animal"))
+    assert {:ok, %{"key" => "horse is my favorite animal"}} == Parser.decode(~s(key : "horse " is my favorite animal))
+  end
+
+  test "Tokenize substitutions" do
+    assert {:ok, %{"key" => "${animal.favorite} is my favorite animal"}} == Parser.decode(~s(key : """${animal.favorite} is my favorite animal"""))
+    assert {:ok, %{"key" => "${animal.favorite} is my favorite animal"}} == Parser.decode(~s(key : ${animal.favorite} is my favorite animal))
+    assert {:ok, %{"key" => "${animal.favorite} is my favorite animal"}} == Parser.decode(~s(key : ${animal.favorite}" is my favorite animal"))
+  end
+
 end

@@ -96,4 +96,10 @@ defmodule TokenizerTest do
   test "forcing error" do
     assert catch_throw(Tokenizer.decode("-a")) == {:position, 1}
   end
+
+  test "Tokenize substitutions" do
+    assert {:ok, [{:unquoted_string, "key"}, :colon, {:string, "${animal.favorite} is my favorite animal"}]} == Tokenizer.decode(~s(key : """${animal.favorite} is my favorite animal"""))
+    assert {:ok, [{:unquoted_string, "key"}, :colon, {:unquoted_string, "${animal.favorite}"}, :ws, {:unquoted_string, "is"}, :ws, {:unquoted_string, "my"}, :ws, {:unquoted_string, "favorite"}, :ws, {:unquoted_string, "animal"}]} == Tokenizer.decode(~s(key : ${animal.favorite} is my favorite animal))
+    assert {:ok, [{:unquoted_string, "key"}, :colon, {:unquoted_string, "${animal.favorite}"}, {:string, " is my favorite animal"}]} == Tokenizer.decode(~s(key : ${animal.favorite}" is my favorite animal"))
+  end
 end

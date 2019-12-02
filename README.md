@@ -26,7 +26,7 @@ Then you can read and parse the HOCON-Configuration file:
 ```elixir
 
     {:ok, body} = File.read("my-configuration.conf")
-    result = Parser.run(body)
+    result = Parser.decode(body)
 
     IO.puts inspect result
 

@@ -38,6 +38,9 @@ defmodule Hocon.Tokenizer do
       _                   -> tokenize(rest, original, skip + 1, tokens) ## todo error
     end
   end
+  def tokenize(<<"${", rest::bits>>, original, skip, tokens) do
+    substitutions(rest, original, skip, tokens, 2)
+  end
   def tokenize(<<"{", rest::bits>>, original, skip, tokens) do
     tokenize(rest, original, skip + 1, Tokens.push(tokens, :open_curly))
   end
@@ -109,7 +112,7 @@ defmodule Hocon.Tokenizer do
   end
 
   def string(<<"\"", rest::bits>>, original, skip, tokens, len) do
-    str = String.trim(binary_part(original, skip, len))
+    str = binary_part(original, skip, len)
     tokenize(rest, original, skip + len + 1, Tokens.push(tokens, {:string, str}))
   end
   def string(<<_char::utf8, rest::bits>>, original, skip, tokens, len) do
@@ -147,6 +150,20 @@ defmodule Hocon.Tokenizer do
   def unquoted_string("", original, skip, tokens, len) do
     str = String.trim(binary_part(original, skip, len))
     tokenize("", original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
+  end
+
+  def substitutions(<<"}", rest::bits>>, original, skip, tokens, len)  do
+    str = String.trim(binary_part(original, skip, len + 1))
+    tokenize(rest, original, skip + len + 1, Tokens.push(tokens, {:unquoted_string, str}))
+  end
+  def substitutions(<<char::utf8, _rest::bits>>, original, skip, _tokens, _len) when char in '\s\n\t\r\v' do
+    error(original, skip)
+  end
+  def substitutions(<<_char::utf8, rest::bits>>, original, skip, tokens, len) do
+    substitutions(rest, original, skip, tokens, len + 1)
+  end
+  def substitutions("", original, skip, _tokens, _len) do
+    error(original, skip)
   end
 
   ##
