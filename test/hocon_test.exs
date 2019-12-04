@@ -1,6 +1,5 @@
 defmodule HoconTest do
   use ExUnit.Case, async: true
-  #doctest Hocon
 
   alias Hocon.Parser
   alias Hocon.Tokenizer
@@ -111,6 +110,7 @@ defmodule HoconTest do
     assert {:ok, %{"bar" => %{"baz" => 42, "foo" => 42}}} == Hocon.decode(~s(bar : { foo : 42, baz : ${bar.foo}}))
     assert {:ok, %{"bar" => %{"baz" => 43, "foo" => 43}}} == Hocon.decode(~s(bar : { foo : 42, baz : ${bar.foo} }\nbar : { foo : 43 }))
     assert {:ok, %{"bar" => %{"a" => 4, "b" => 3}, "foo" => %{"c" => 3, "d" => 4}}} == Hocon.decode(~s(bar : { a : ${foo.d}, b : 1 }\nbar.b = 3\nfoo : { c : ${bar.b}, d : 2 }\nfoo.d = 4))
+    assert {:ok, %{"a" => "2 2", "b" => 2}} == Hocon.decode(~s(a : ${b}, b : 2\n a : ${a} ${b}))
   end
 
   test "Parsing self-references substitutions" do
@@ -133,6 +133,11 @@ defmodule HoconTest do
     assert catch_throw(Hocon.decode(~s(a : { b : ${a} }))) == {:circle_detected, "a"}
   end
 
-  #
+  test "Parsing unquoted strings as values" do
+    assert {:ok, %{"a" => "c"}} == Hocon.decode(~s({a : b\n a : c}))
+  end
+  test "Parsing quoted strings as keys" do
+    assert {:ok, %{"a" => %{"b" => %{"c" => 1}}}} == Hocon.decode(~s({"a" { "b" { c : 1 }}}))
+  end
 
 end

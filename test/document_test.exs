@@ -1,6 +1,5 @@
 defmodule DocumentTest do
   use ExUnit.Case, async: true
-  #doctest Hocon
 
   alias Hocon.Document
 
