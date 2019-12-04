@@ -1,6 +1,6 @@
 defmodule TokenizerTest do
   use ExUnit.Case, async: true
-  doctest Hocon
+  #doctest Hocon
 
   alias Hocon.Tokenizer
 

@@ -45,41 +45,46 @@ defmodule Hocon.Document do
   end
 
   ##
-  # Resolving the current value in cases of self references
+  # Resolving the current value in cases of self references.
   # abs_path: the current absolute key path is used to identify a self reference substitution
   #
   ##
-  defp resolve_possible_self_references(root, abs_path, value) when is_binary(value) do
+  defp resolve_possible_self_references(root, abs_path, {:unquoted_string, value}) do
     case find_substitutions(value) do
        []      -> value               # case: no subsitutions
        [found] when found == value -> # case: exact one substitution
          {:ok, value} = resolve_possible_self_reference(root, abs_path, found)
          value
+
        found ->                       # case: multiple substitution within a string like "${foo} ${bar}"
-         found
+         value = found
          |> Enum.map(fn subs -> {subs, resolve_possible_self_reference(root, abs_path, subs)} end)
-         |> Enum.filter(fn {key, {:ok, value}} -> key != value end)
-         |> Enum.reduce(value, fn {key, {:ok, value}}, result -> String.replace(result, key, to_string(value)) end)
+         |> Enum.filter(fn {key, {:ok, value}} -> was_resolved(key, value) end) # only replaces what we have found
+         |> Enum.reduce(value, fn {key, {:ok, value}}, result -> String.replace(result, key, value |> fetch_value() |> to_string()) end)
+         {:unquoted_string, value}
     end
   end
   defp resolve_possible_self_references(_root, _abs_path, value)  do
     value
   end
 
+  defp was_resolved(key, {:unquoted_string, value}), do: value != key
+  defp was_resolved(_, _), do: true
+
+  defp fetch_value({:unquoted_string, value}), do: value
+  defp fetch_value(value), do: value
+
   defp resolve_possible_self_reference(root, abs_path, subs) do
     subs_path = get_path(subs)
-    case String.starts_with?(subs_path, abs_path) do
-      false -> {:ok, subs}          # case: not self reference - keep it unmodified
-      true  -> get(root, subs_path) # case: self reference - get current value
+    case String.starts_with?(subs_path, abs_path) do# is this a good idea?
+      false -> {:ok, {:unquoted_string, subs}} # case: not self reference - keep it unmodified
+      true  -> get_raw(root, subs_path)        # case: self reference - get current value
     end
   end
 
-  defp find_substitutions(value) when is_binary(value) do
+  defp find_substitutions(value) do
     Regex.scan(~r/\$\{.*?\}/, value)
     |> Enum.map(fn [subs] -> subs end)
-  end
-  defp find_substitutions(_other) do
-    []
   end
 
   def merge(root, key, %{} = original, %{} = value) do
@@ -113,9 +118,26 @@ defmodule Hocon.Document do
   defp convert_map(original, current, visited, opts) do
     Map.to_list(current)
     |> Enum.map(fn {key, value} -> convert_numerically_indexed(key, value, opts) end)
-    |> Enum.map(fn {key, value} -> replace_all_substitutions(original, key, value, visited) end)
+    |> Enum.map(fn
+      {key, {:unquoted_string, value}} -> replace_all_substitutions(original, key, value, visited)
+       other                           -> other
+    end)
     |> Enum.map(fn {key, value} -> convert_nested_maps(original, key, value, push_key(key, visited), opts) end)
+    |> Enum.map(fn {key, value} -> resolve_unquoted_strings_in_arrays(original, key, value, visited) end)
     |> Enum.into(%{})
+  end
+
+  defp resolve_unquoted_strings_in_arrays(original, key, value, visited) when is_list(value) do
+    value = Enum.map(value, fn
+      {:unquoted_string, subs} -> with {_, value} <- replace_all_substitutions(original, key, subs, visited) do
+                                    value
+                                  end
+      other -> other
+    end)
+    {key, value}
+  end
+  defp resolve_unquoted_strings_in_arrays(_original, key, value, _visited) do
+    {key, value}
   end
 
   defp convert_nested_maps(original, key, value, visited, opts) when is_map(value) do
@@ -132,13 +154,10 @@ defmodule Hocon.Document do
     [head <> "." <> key|stack]
   end
 
-  defp replace_all_substitutions(original, key, value, visited) when is_binary(value) do
+  defp replace_all_substitutions(original, key, value, visited) do
     with {:ok, value} <- resolve_substitutions(original, value, visited) do
       {key, value}
     end
-  end
-  defp replace_all_substitutions(_original, key, value, _visited) do
-    {key, value}
   end
 
   defp convert_numerically_indexed(key, value, opts) when is_map(value) do
@@ -185,19 +204,19 @@ defmodule Hocon.Document do
     |> Enum.map(fn {_,value} -> value end)
   end
 
-  defp get(root, path, visited \\ []) when is_binary(path) do
-    path = path
+  defp get(root, keypath, visited) when is_binary(keypath) do
+    keypath = keypath
           |> String.split(".")
           |> Enum.map(fn str -> String.trim(str) end)
-    get(root, root, path, visited)
+    get(root, root, keypath, visited)
   end
 
-  defp get(root, value, [], visited) when is_binary(value) do
+  defp get(root, {:unquoted_string, value}, [], visited) do
     resolve_substitutions(root, value, visited)
   end
 
-  defp get(_root, nil, path, visited) do
-    {:not_found, (Enum.reverse(visited) ++ path) |> Enum.join(".")}
+  defp get(_root, nil, keypath, visited) do
+    {:not_found, (Enum.reverse(visited) ++ keypath) |> Enum.join(".")}
   end
 
   defp get(_root, value, [], _visited) do
@@ -206,6 +225,25 @@ defmodule Hocon.Document do
 
   defp get(root, object, [key|rest], visited) when is_map(object) do
     get(root, Map.get(object, key), rest, push_key(key, visited))
+  end
+
+  defp get_raw(root, keypath, visited \\ []) when is_binary(keypath) do
+    keypath = keypath
+              |> String.split(".")
+              |> Enum.map(fn str -> String.trim(str) end)
+    get_raw(root, root, keypath, visited)
+  end
+
+  defp get_raw(_root, nil, keypath, visited) do
+    {:not_found, (Enum.reverse(visited) ++ keypath) |> Enum.join(".")}
+  end
+
+  defp get_raw(_root, value, [], _visited) do
+    {:ok, value}
+  end
+
+  defp get_raw(root, object, [key|rest], visited) when is_map(object) do
+    get_raw(root, Map.get(object, key), rest, push_key(key, visited))
   end
 
   ##
@@ -217,7 +255,6 @@ defmodule Hocon.Document do
          path <- get_path(substituions),
           :ok <- check_circle(path, visited),
          {:ok, new_value} <- get(root, path, visited) do
-
 
       case value == substituions do
          true  -> {:ok, new_value}  ## Single substitution: ${foo} == ${foo}
@@ -252,7 +289,6 @@ defmodule Hocon.Document do
     :ok
   end
   defp check_circle(path, visited) do
-    # IO.puts "Visited #{inspect visited} checking path #{path}"
     visited = visited |> Enum.reverse() |> Enum.any?(fn visiting -> path == visiting end)
     case visited do
       false -> :ok

@@ -1,6 +1,6 @@
 defmodule HoconTest do
   use ExUnit.Case, async: true
-  doctest Hocon
+  #doctest Hocon
 
   alias Hocon.Parser
   alias Hocon.Tokenizer
@@ -26,13 +26,13 @@ defmodule HoconTest do
     assert [:open_curly, :close_curly] == Parser.contact_rule(ast, [])
 
     {:ok, ast} = Tokenizer.decode(~s({a b c}))
-    assert [:open_curly, {:string, "a b c"}, :close_curly] == Parser.contact_rule(ast, [])
+    assert [:open_curly, {:unquoted_string, "a b c"}, :close_curly] == Parser.contact_rule(ast, [])
 
     {:ok, ast} = Tokenizer.decode(~s({a 3 c}))
-    assert [:open_curly, {:string, "a 3 c"}, :close_curly] == Parser.contact_rule(ast, [])
+    assert [:open_curly, {:unquoted_string, "a 3 c"}, :close_curly] == Parser.contact_rule(ast, [])
 
     {:ok, ast} = Tokenizer.decode(~s({1 3 c}))
-    assert [:open_curly, {:string, "1 3 c"}, :close_curly] == Parser.contact_rule(ast, [])
+    assert [:open_curly, {:unquoted_string, "1 3 c"}, :close_curly] == Parser.contact_rule(ast, [])
   end
 
   test "Parse simple array" do
@@ -97,11 +97,13 @@ defmodule HoconTest do
   end
 
   test "Parsing substitutions" do
-    assert {:ok, %{"key" => "dog is my favorite animal", "animal" => %{"favorite" => "dog"}}} == Hocon.decode(~s(animal { favorite : "dog" }, key : """${animal.favorite} is my favorite animal"""))
+    assert {:ok, %{"key" => "${animal.favorite} is my favorite animal", "animal" => %{"favorite" => "dog"}}} == Hocon.decode(~s(animal { favorite : "dog" }, key : """${animal.favorite} is my favorite animal"""))
     assert {:ok, %{"key" => "dog is my favorite animal", "animal" => %{"favorite" => "dog"}}} == Hocon.decode(~s(animal { favorite : "dog" }, key : ${animal.favorite} is my favorite animal))
     assert {:ok, %{"key" => "dog is my favorite animal", "animal" => %{"favorite" => "dog"}}} == Hocon.decode(~s(animal { favorite : "dog" }, key : ${animal.favorite}" is my favorite animal"))
     assert catch_throw(Hocon.decode(~s(key : ${animal.favorite}" is my favorite animal"))) == {:not_found, "animal.favorite"}
-    assert {:ok, %{"key" => "Max limit is 10", "limit" => %{"max" => 10}}} == Hocon.decode(~s(limit { max : 10 }, key : """Max limit is ${limit.max}"""))
+    assert {:ok, %{"key" => "Max limit is 10", "limit" => %{"max" => 10}}} == Hocon.decode(~s(limit { max : 10 }, key : Max limit is ${limit.max}))
+    assert {:ok, %{"key" => "Max limit is ${limit.max}", "limit" => %{"max" => 10}}} == Hocon.decode(~s(limit { max : 10 }, key : """Max limit is ${limit.max}"""))
+    assert {:ok, %{"key" => "Max limit is ${limit.max}", "limit" => %{"max" => 10}}} == Hocon.decode(~s(limit { max : 10 }, key : "Max limit is ${limit.max}"))
   end
 
   test "Parsing complex substitutions" do
@@ -113,8 +115,8 @@ defmodule HoconTest do
 
   test "Parsing self-references substitutions" do
     assert {:ok, %{"foo" => %{"a" => 2, "c" => 1}}} == Hocon.decode(~s(foo : { a : { c : 1 } }\nfoo : ${foo.a}\nfoo : { a : 2 }))
-    assert {:ok, %{"foo" => "1 2"}} == Hocon.decode(~s(foo : { bar : 1, baz : 2 }\nfoo : "${foo.bar} ${foo.baz}"))
-    assert {:ok, %{"foo" => "1 2", "baz" => 2}} == Hocon.decode(~s(baz : 2\nfoo : { bar : 1, baz : 2 }\nfoo : "${foo.bar} ${baz}"))
+    assert {:ok, %{"foo" => "1 2"}} == Hocon.decode(~s(foo : { bar : 1, baz : 2 }\nfoo : ${foo.bar} ${foo.baz}))
+    assert {:ok, %{"foo" => "1 2", "baz" => 2}} == Hocon.decode(~s(baz : 2\nfoo : { bar : 1, baz : 2 }\nfoo : ${foo.bar} ${baz}))
     assert {:ok, %{"path" => "a:b:c:d"}} == Hocon.decode(~s(path : "a:b:c"\npath : ${path}":d"))
   end
 

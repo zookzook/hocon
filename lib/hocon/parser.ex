@@ -31,12 +31,7 @@ defmodule Hocon.Parser do
   end
 
   def contact_rule([], result) do
-    result
-    |> Enum.map(fn
-      {:unquoted_string, value} -> {:string, value}
-      other                     -> other
-    end)
-    |> Enum.reverse()
+    Enum.reverse(result)
   end
   def contact_rule([{:unquoted_string, simple_a}, :ws, {:unquoted_string, simple_b}|rest], result) do
     contact_rule([{:unquoted_string, simple_a <> " " <> simple_b} | rest], result)
@@ -79,6 +74,9 @@ defmodule Hocon.Parser do
   def parse([{:string, str} | rest]) do
     {rest, str}
   end
+  def parse([{:unquoted_string, _} = value | rest]) do
+    {rest, value}
+  end
   def parse([number | rest]) when is_number(number) do
     {rest, number}
   end
@@ -110,6 +108,14 @@ defmodule Hocon.Parser do
     parse_object(rest, Document.put(result, key, value), root)
   end
   defp parse_object([{:string, key}, :colon | rest], result, root) do
+    {rest, value} = parse(rest)
+    parse_object(rest, Document.put(result, key, value), root)
+  end
+  defp parse_object([{:unquoted_string, key}, :open_curly | rest], result, root) do
+    {rest, value} = parse_object(rest, Document.new())
+    parse_object(rest, Document.put(result, key, value), root)
+  end
+  defp parse_object([{:unquoted_string, key}, :colon | rest], result, root) do
     {rest, value} = parse(rest)
     parse_object(rest, Document.put(result, key, value), root)
   end

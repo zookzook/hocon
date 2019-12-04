@@ -1,6 +1,6 @@
 defmodule TokensTest do
   use ExUnit.Case
-  doctest Hocon
+  #doctest Hocon
 
   alias Hocon.Tokens
 
