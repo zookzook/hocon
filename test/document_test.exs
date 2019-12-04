@@ -1,5 +1,5 @@
 defmodule DocumentTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest Hocon
 
   alias Hocon.Document
@@ -53,26 +53,26 @@ defmodule DocumentTest do
              |> Document.put("foo.1", 43)
              |> Document.put("foo.2", 43)
 
-    result = Document.convert_to_array(result.root["foo"], convert_numerically_indexed: true)
+    result = Document.convert(result, convert_numerically_indexed: true)
 
-    assert :not_converted == result
+    assert %{"foo" => %{"1" => 43, "2" => 43, "x" => 42}} == result
 
     result = Document.new()
              |> Document.put("foo.x", 42)
              |> Document.put("foo.1", 43)
              |> Document.put("foo.2", 43)
 
-    result = Document.convert_to_array(result.root["foo"], convert_numerically_indexed: true, strict_conversion: false)
-    assert {:converted, [43,43]} == result
+    result = Document.convert(result, convert_numerically_indexed: true, strict_conversion: false)
+    assert %{"foo" => [43,43]} == result
 
     result = Document.new()
              |> Document.put("foo.0", 42)
              |> Document.put("foo.1", 43)
              |> Document.put("foo.2", 43)
 
-    result = Document.convert_to_array(result.root["foo"], convert_numerically_indexed: true)
+    result = Document.convert(result, convert_numerically_indexed: true)
 
-    assert {:converted, [42,43,43]} == result
+    assert %{"foo" => [42,43,43]} == result
   end
 
   test "Conversion of numerically-indexed objects to arrays using convert" do

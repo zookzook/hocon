@@ -30,7 +30,7 @@ defmodule Hocon.MixProject do
   defp deps do
     [
       {:excoveralls, "~> 0.12.1", only: :test},
-      {:ex_doc, "~> 0.18", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.21", only: :dev, runtime: false}
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]

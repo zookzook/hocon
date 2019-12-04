@@ -104,7 +104,7 @@ defmodule Hocon.Tokenizer do
   end
   def multi_line_string_end(<<_char::utf8, _rest::bits>> = string, original, skip, tokens, len) do
     str = String.trim(binary_part(original, skip, len))
-    tokenize(string, original, skip + len, Tokens.push(tokens, {:string, str}))
+    tokenize(string, original, skip + len + 3, Tokens.push(tokens, {:string, str}))
   end
   def multi_line_string_end("", original, skip, tokens, len) do
     str = String.trim(binary_part(original, skip, len))

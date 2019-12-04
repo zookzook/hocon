@@ -1,5 +1,5 @@
 defmodule TokenizerTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest Hocon
 
   alias Hocon.Tokenizer
@@ -51,6 +51,7 @@ defmodule TokenizerTest do
     assert {:ok, [string: "the answer is 42\n   * this\n    * is\n    * a\n   * test!"]} == Tokenizer.decode(~s("""the answer is 42\n   * this\n    * is\n    * a\n   * test!"""))
     assert {:ok, [string: "\"the answer is 42\""]} == Tokenizer.decode(~s(""""the answer is 42""""))
     assert {:ok, [string: "\"\"the answer is 42\"\""]} == Tokenizer.decode(~s("""""the answer is 42"""""))
+    assert {:ok, [{:string, "the answer is \""}, 42]} == Tokenizer.decode(~s("""the answer is """" 42))
   end
 
   test "unquoted strings" do
@@ -101,5 +102,8 @@ defmodule TokenizerTest do
     assert {:ok, [{:unquoted_string, "key"}, :colon, {:string, "${animal.favorite} is my favorite animal"}]} == Tokenizer.decode(~s(key : """${animal.favorite} is my favorite animal"""))
     assert {:ok, [{:unquoted_string, "key"}, :colon, {:unquoted_string, "${animal.favorite}"}, :ws, {:unquoted_string, "is"}, :ws, {:unquoted_string, "my"}, :ws, {:unquoted_string, "favorite"}, :ws, {:unquoted_string, "animal"}]} == Tokenizer.decode(~s(key : ${animal.favorite} is my favorite animal))
     assert {:ok, [{:unquoted_string, "key"}, :colon, {:unquoted_string, "${animal.favorite}"}, {:string, " is my favorite animal"}]} == Tokenizer.decode(~s(key : ${animal.favorite}" is my favorite animal"))
+
+    assert catch_throw(Tokenizer.decode(~s(key : ${animal.favorite))) == {:position, 6}
+    assert catch_throw(Tokenizer.decode(~s(key : ${animal. favorite}))) == {:position, 6}
   end
 end

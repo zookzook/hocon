@@ -26,7 +26,7 @@ Then you can read and parse the HOCON-Configuration file:
 ```elixir
 
     {:ok, body} = File.read("my-configuration.conf")
-    result = Parser.decode(body)
+    result = Hocon.decode(body)
 
     IO.puts inspect result
 
@@ -43,7 +43,7 @@ That means the API may change from version to version.
 
 https://github.com/lightbend/config/blob/master/HOCON.md
 
-- [ ] parsing JSON
+- [x] parsing JSON
 - [x] comments
 - [x] omit root braces
 - [x] key-value separator
