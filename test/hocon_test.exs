@@ -96,7 +96,7 @@ defmodule HoconTest do
     assert {:ok, %{"key" => "horse is my favorite animal"}} == Hocon.decode(~s(key : "horse " is my favorite animal))
   end
 
-  test "Tokenize substitutions" do
+  test "Parsing substitutions" do
     assert {:ok, %{"key" => "dog is my favorite animal", "animal" => %{"favorite" => "dog"}}} == Hocon.decode(~s(animal { favorite : "dog" }, key : """${animal.favorite} is my favorite animal"""))
     assert {:ok, %{"key" => "dog is my favorite animal", "animal" => %{"favorite" => "dog"}}} == Hocon.decode(~s(animal { favorite : "dog" }, key : ${animal.favorite} is my favorite animal))
     assert {:ok, %{"key" => "dog is my favorite animal", "animal" => %{"favorite" => "dog"}}} == Hocon.decode(~s(animal { favorite : "dog" }, key : ${animal.favorite}" is my favorite animal"))
@@ -104,10 +104,33 @@ defmodule HoconTest do
     assert {:ok, %{"key" => "Max limit is 10", "limit" => %{"max" => 10}}} == Hocon.decode(~s(limit { max : 10 }, key : """Max limit is ${limit.max}"""))
   end
 
+  test "Parsing complex substitutions" do
+    assert {:ok, %{"animal" => %{"favorite" => "dog"}, "a" => %{"b" => %{"c" => "dog"}}}} == Hocon.decode(~s(animal { favorite : "dog" }, a { b { c : ${animal.favorite}}}))
+    assert {:ok, %{"bar" => %{"baz" => 42, "foo" => 42}}} == Hocon.decode(~s(bar : { foo : 42, baz : ${bar.foo}}))
+    assert {:ok, %{"bar" => %{"baz" => 43, "foo" => 43}}} == Hocon.decode(~s(bar : { foo : 42, baz : ${bar.foo} }\nbar : { foo : 43 }))
+    assert {:ok, %{"bar" => %{"a" => 4, "b" => 3}, "foo" => %{"c" => 3, "d" => 4}}} == Hocon.decode(~s(bar : { a : ${foo.d}, b : 1 }\nbar.b = 3\nfoo : { c : ${bar.b}, d : 2 }\nfoo.d = 4))
+  end
+
+  test "Parsing self-references substitutions" do
+    assert {:ok, %{"foo" => %{"a" => 2, "c" => 1}}} == Hocon.decode(~s(foo : { a : { c : 1 } }\nfoo : ${foo.a}\nfoo : { a : 2 }))
+    assert {:ok, %{"foo" => "1 2"}} == Hocon.decode(~s(foo : { bar : 1, baz : 2 }\nfoo : "${foo.bar} ${foo.baz}"))
+    assert {:ok, %{"foo" => "1 2", "baz" => 2}} == Hocon.decode(~s(baz : 2\nfoo : { bar : 1, baz : 2 }\nfoo : "${foo.bar} ${baz}"))
+    assert {:ok, %{"path" => "a:b:c:d"}} == Hocon.decode(~s(path : "a:b:c"\npath : ${path}":d"))
+  end
+
   test "Parsing json" do
     assert {:ok, %{"a" => %{"b" => "c"}}} == Hocon.decode(~s({"a" : { "b" : "c"}}))
     assert {:ok, %{"a" => [1, 2, 3, 4]}} == Hocon.decode(~s({"a" : [1,2,3,4]}))
     assert {:ok, %{"a" => "b", "c" => ["a", "b", "c"], "x" => 10.99}} == Hocon.decode(~s({"a" : "b", "c" : ["a", "b", "c"], "x" : 10.99}))
   end
+
+  test "Parsing substitutions with cycles" do
+    assert catch_throw(Hocon.decode(~s(bar : ${foo}\nfoo : ${bar}))) == {:circle_detected, "foo"}
+    assert catch_throw(Hocon.decode(~s(a : ${b}\nb : ${c}\nc : ${a}))) == {:circle_detected, "b"}
+    assert catch_throw(Hocon.decode(~s(a : 1\nb : 2\na : ${b}\nb : ${a}))) == {:circle_detected, "b"}
+    assert catch_throw(Hocon.decode(~s(a : { b : ${a} }))) == {:circle_detected, "a"}
+  end
+
+  #
 
 end
