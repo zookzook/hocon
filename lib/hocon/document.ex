@@ -13,35 +13,45 @@ defmodule Hocon.Document do
     %Document{}
   end
 
-  def put(doc, key, %Document{root: value}) do
-    put(doc, key, value)
+  def put(doc, key, value, tokens \\ [])
+  def put(doc, key, %Document{root: value}, tokens) do
+    put(doc, key, value, tokens)
   end
-  def put(%Document{root: root}, key, value) do
+  def put(%Document{root: root}, key, value, tokens) do
    path = key
           |> String.split(".")
           |> Enum.map(fn str -> String.trim(str) end)
           |> Enum.filter(fn str -> str != nil end)
-    %Document{root: put_path(root, path, value, [])}
+
+   {rest, root} = put_path(root, path, value, [], tokens)
+   {rest, %Document{root: root}}
   end
 
-  defp put_path(root, [key], nil, _visited) do
+  defp put_path(root, [key], nil, _visited, tokens) do
     with {_, result} <- Map.pop(root, key) do
-      result
+      {tokens, result}
     end
   end
-  defp put_path(root, [key], value, visited) do
+  defp put_path(root, [key], value, visited, tokens) do
     case Map.get(root, key) do
-      nil   -> Map.put(root, key, value)
+      nil   -> {tokens, Map.put(root, key, value)}
       other ->
         # Here we need to check for self references.
         # In this case we have to look forward for the current value.
         abs_path = Enum.reverse([key|visited]) |> Enum.join(".")
         value    = resolve_possible_self_references(root, abs_path, value)
-        merge(root, key, other, value)
+        # If we have now a list, then check if another list follows. In this case we merging both arrays
+        {tokens, value} = case is_list(value) do
+           true  -> Hocon.Parser.try_concat_array(tokens, value)
+           false -> {tokens, value}
+        end
+
+        {tokens, merge(root, key, other, value)}
     end
   end
-  defp put_path(root, [head|tail], value, visited) do
-    Map.put(root, head, put_path(Map.get(root, head, %{}), tail, value, [head|visited]))
+  defp put_path(root, [head|tail], value, visited, tokens) do
+    {rest, value} = put_path(Map.get(root, head, %{}), tail, value, [head|visited], tokens)
+    {rest, Map.put(root, head, value)}
   end
 
   ##
@@ -251,12 +261,12 @@ defmodule Hocon.Document do
   ##
   defp resolve_substitutions(root, value, visited) do
 
-    with [substituions] <- Regex.run(~r/\$\{.*?\}/, value),
-         path <- get_path(substituions),
-          :ok <- check_circle(path, visited),
-         {:ok, new_value} <- get(root, path, visited) do
+    with [substituions] <- Regex.run(~r/\$\{.*?\}/, value),   ## find first substitution string
+         path <- get_path(substituions),                      ## extracts content
+         :ok <- check_circle(path, visited),                  ## check for circles
+         {:ok, new_value} <- get_or_fetch_env(get(root, path, visited), path) do ## fetch value or try to find an environment variable
 
-      case value == substituions do
+        case value == substituions do
          true  -> {:ok, new_value}  ## Single substitution: ${foo} == ${foo}
          false ->                   ## Multiple substitutions within a string: ${foo} ${bar} == ${foo}
            value = String.replace(value, substituions, to_string(new_value))
@@ -268,6 +278,14 @@ defmodule Hocon.Document do
       {:circle_detected, path} -> throw {:circle_detected, path}
     end
 
+  end
+
+  def get_or_fetch_env({:ok, _} = result, _path), do: result
+  def get_or_fetch_env({:not_found, _}, path) do
+    case System.fetch_env(path) do
+      {:ok, result} -> {:ok, result}
+        _           -> {:not_found, path}
+    end
   end
 
   ##

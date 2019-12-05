@@ -105,27 +105,33 @@ defmodule Hocon.Parser do
   end
   defp parse_object([{:string, key}, :open_curly | rest], result, root) do
     {rest, value} = parse_object(rest, Document.new())
-    parse_object(rest, Document.put(result, key, value), root)
+    {rest, doc} = Document.put(result, key, value, rest)
+    parse_object(rest, doc, root)
   end
   defp parse_object([{:string, key}, :colon | rest], result, root) do
     {rest, value} = parse(rest)
-    parse_object(rest, Document.put(result, key, value), root)
+    {rest, doc} = Document.put(result, key, value, rest)
+    parse_object(rest, doc, root)
   end
   defp parse_object([{:unquoted_string, key}, :open_curly | rest], result, root) do
     {rest, value} = parse_object(rest, Document.new())
-    parse_object(rest, Document.put(result, key, value), root)
+    {rest, doc} = Document.put(result, key, value, rest)
+    parse_object(rest, doc, root)
   end
   defp parse_object([{:unquoted_string, key}, :colon | rest], result, root) do
     {rest, value} = parse(rest)
-    parse_object(rest, Document.put(result, key, value), root)
+    {rest, doc} = Document.put(result, key, value, rest)
+    parse_object(rest, doc, root)
   end
   defp parse_object([key, :open_curly | rest], result, root) do
     {rest, value} = parse_object(rest, Document.new())
-    parse_object(rest, Document.put(result, to_string(key), value), root)
+    {rest, doc} = Document.put(result, to_string(key), value, rest)
+    parse_object(rest, doc, root)
   end
   defp parse_object([key, :colon | rest], result, root) do
     {rest, value} = parse(rest)
-    parse_object(rest, Document.put(result, to_string(key), value), root)
+    {rest, doc} = Document.put(result, to_string(key), value, rest)
+    parse_object(rest, doc, root)
   end
 
   def try_merge_object([:open_curly | rest], result) do

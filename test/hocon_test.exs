@@ -136,8 +136,17 @@ defmodule HoconTest do
   test "Parsing unquoted strings as values" do
     assert {:ok, %{"a" => "c"}} == Hocon.decode(~s({a : b\n a : c}))
   end
+
   test "Parsing quoted strings as keys" do
     assert {:ok, %{"a" => %{"b" => %{"c" => 1}}}} == Hocon.decode(~s({"a" { "b" { c : 1 }}}))
+  end
+
+  test "Parsing substitutions with environment variables" do
+    System.put_env("MY_HOME", "/home/greta")
+    assert {:ok, %{"path" => "/home/greta"}} == Hocon.decode(~s(path : ${MY_HOME}))
+    System.put_env("MY_HOME", "/home")
+    assert {:ok, %{"path" => "/home/greta"}} == Hocon.decode(~s(path : ${MY_HOME}\n path : ${path}"/greta"))
+    assert {:ok, %{"path" => ["/home", "usr/bin"]}} == Hocon.decode(~s(path : [${MY_HOME}]\n path : ${path} [ /usr/bin ]))
   end
 
 end
