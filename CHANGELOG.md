@@ -1,3 +1,8 @@
+## 0.1.2
+
+* Enhancements
+    * added support substitutions
+    
 ## 0.1.1
 
 * Enhancements
