@@ -38,6 +38,9 @@ defmodule Hocon.Tokenizer do
       _                   -> tokenize(rest, original, skip + 1, tokens) ## todo error
     end
   end
+  def tokenize(<<"+=", rest::bits>>, original, skip, tokens) do
+    tokenize(rest, original, skip + 2, Tokens.push(tokens, :concat_array))
+  end
   def tokenize(<<"${", rest::bits>>, original, skip, tokens) do
     substitutions(rest, original, skip, tokens, 2)
   end
@@ -72,6 +75,9 @@ defmodule Hocon.Tokenizer do
     number(rest, original, skip, tokens, 1)
   end
   def tokenize(<<"-", rest::bits>>, original, skip, tokens) do
+    number_minus(rest, original, skip, tokens)
+  end
+  def tokenize(<<"+", rest::bits>>, original, skip, tokens) do
     number_minus(rest, original, skip, tokens)
   end
   def tokenize(string, original, skip, tokens) do
@@ -167,9 +173,9 @@ defmodule Hocon.Tokenizer do
   end
 
   ##
-  # numbers
+  # from : https://github.com/michalmuskala/jason/blob/master/lib/decoder.ex
+  # with some modifications
   ##
-
   defp number_minus(<<?0, rest::bits>>, original, skip, tokens) do
     number_zero(rest, original, skip, tokens, 2)
   end
@@ -311,15 +317,6 @@ defmodule Hocon.Tokenizer do
     :error, :badarg -> token_error(token, skip)
   end
 
-  defp error(<<_rest::bits>>, _original, skip, _stack, _key_decode, _string_decode) do
-    throw {:position, skip - 1}
-  end
-
-  defp empty_error(_original, skip) do
-    throw {:position, skip}
-  end
-
-  # @compile {:inline, error: 2, token_error: 2, token_error: 3}
   defp error(_original, skip) do
     throw {:position, skip}
   end

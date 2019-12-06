@@ -237,22 +237,22 @@ defmodule Hocon.Document do
     get(root, Map.get(object, key), rest, push_key(key, visited))
   end
 
-  defp get_raw(root, keypath, visited \\ []) when is_binary(keypath) do
+  def get_raw(root, keypath, visited \\ []) when is_binary(keypath) do
     keypath = keypath
               |> String.split(".")
               |> Enum.map(fn str -> String.trim(str) end)
     get_raw(root, root, keypath, visited)
   end
 
-  defp get_raw(_root, nil, keypath, visited) do
+  def get_raw(_root, nil, keypath, visited) do
     {:not_found, (Enum.reverse(visited) ++ keypath) |> Enum.join(".")}
   end
 
-  defp get_raw(_root, value, [], _visited) do
+  def get_raw(_root, value, [], _visited) do
     {:ok, value}
   end
 
-  defp get_raw(root, object, [key|rest], visited) when is_map(object) do
+  def get_raw(root, object, [key|rest], visited) when is_map(object) do
     get_raw(root, Map.get(object, key), rest, push_key(key, visited))
   end
 

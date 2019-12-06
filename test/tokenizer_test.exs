@@ -65,6 +65,7 @@ defmodule TokenizerTest do
     assert {:ok, [-10]} == Tokenizer.decode("-10")
     assert {:ok, [0]} == Tokenizer.decode("-000")
 
+    assert {:ok, [10.0]} == Tokenizer.decode("10.00")
     assert {:ok, [10.0]} == Tokenizer.decode("10.0")
     assert {:ok, [0]} == Tokenizer.decode("0.0")
     assert {:ok, [-10.0]} == Tokenizer.decode("-10.0")
@@ -74,6 +75,10 @@ defmodule TokenizerTest do
     assert {:ok, [100]} == Tokenizer.decode("1E+2")
     assert {:ok, [-100]} == Tokenizer.decode("-1.0E+2")
     assert {:ok, [-100]} == Tokenizer.decode("-1E+2")
+    assert {:ok, [-100]} == Tokenizer.decode("-1E+02")
+    assert {:ok, [-1.0e3]} == Tokenizer.decode("-10E+02")
+    assert {:ok, [0]} == Tokenizer.decode("0E+0")
+    assert {:ok, [0.02, {:unquoted_string, ".2E"}, 2]} == Tokenizer.decode("0.02E+0.2E+2")
   end
 
   test "Tokenize arrays" do
@@ -95,6 +100,16 @@ defmodule TokenizerTest do
 
   test "forcing error" do
     assert catch_throw(Tokenizer.decode("-a")) == {:position, 1}
+    assert catch_throw(Tokenizer.decode("0.a")) == {:position, 2}
+    assert catch_throw(Tokenizer.decode("-1Eg+2")) == {:position, 3}
+    assert catch_throw(Tokenizer.decode("-1E+a")) == {:position, 4}
+    assert catch_throw(Tokenizer.decode("1.")) == {:position, 2}
+    assert catch_throw(Tokenizer.decode("-")) == {:position, 1}
+    assert catch_throw(Tokenizer.decode("--1")) == {:position, 1}
+    #assert catch_throw(Tokenizer.decode("01")) == {:position, 2}
+    #assert catch_throw(Tokenizer.decode(".1")) == {:position, 2}
+    assert catch_throw(Tokenizer.decode("1e")) == {:position, 2}
+    assert catch_throw(Tokenizer.decode("1.0e+")) == {:position, 5}
   end
 
   test "Tokenize substitutions" do

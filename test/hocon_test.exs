@@ -149,4 +149,10 @@ defmodule HoconTest do
     assert {:ok, %{"path" => ["/home", "usr/bin"]}} == Hocon.decode(~s(path : [${MY_HOME}]\n path : ${path} [ /usr/bin ]))
   end
 
+  test "Parsing  += field separator" do
+    assert {:ok, %{"a" => [1, "a"]}} == Hocon.decode(~s(a += 1\n a+= a))
+    assert {:ok, %{"a" => [1, "a", 2, 3], "b" => 3}} == Hocon.decode(~s(b : 3, a += 1\n a+= a\n a += 2\n a += ${b}))
+    assert {:ok, %{"b" => 3, "dic" => %{"a" => [1, "a", 2, 3]}}} == Hocon.decode(~s(b : 3, dic { a += 1\n a+= a\n a += 2\n a += ${b} }))
+  end
+
 end
