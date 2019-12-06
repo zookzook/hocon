@@ -85,11 +85,21 @@ defmodule Hocon.Document do
   defp fetch_value(value), do: value
 
   defp resolve_possible_self_reference(root, abs_path, subs) do
-    subs_path = get_path(subs)
-    case String.starts_with?(subs_path, abs_path) do# is this a good idea?
-      false -> {:ok, {:unquoted_string, subs}} # case: not self reference - keep it unmodified
-      true  -> get_raw(root, subs_path)        # case: self reference - get current value
+    {kind, subs_path} = get_path(subs)
+    case String.starts_with?(subs_path, abs_path) do                               # is this a good idea?
+      false -> {:ok, {:unquoted_string, subs}}                                     # case: not self reference - keep it unmodified
+      true  -> root |> get_raw(subs_path) |> resolve_optional_self_reference(kind) # case: self reference - get current value
     end
+  end
+
+  defp resolve_optional_self_reference({:ok, _} = result, _) do
+    result
+  end
+  defp resolve_optional_self_reference({:not_found, _} = result, :mandatory) do
+    result
+  end
+  defp resolve_optional_self_reference({:not_found, _}, :optional) do
+    {:ok, ""}
   end
 
   defp find_substitutions(value) do
@@ -262,9 +272,9 @@ defmodule Hocon.Document do
   defp resolve_substitutions(root, value, visited) do
 
     with [substituions] <- Regex.run(~r/\$\{.*?\}/, value),   ## find first substitution string
-         path <- get_path(substituions),                      ## extracts content
+         {kind, path} <- get_path(substituions),                      ## extracts content
          :ok <- check_circle(path, visited),                  ## check for circles
-         {:ok, new_value} <- get_or_fetch_env(get(root, path, visited), path) do ## fetch value or try to find an environment variable
+         {:ok, new_value} <- get_or_fetch_env(get(root, path, visited), path, kind) do ## fetch value or try to find an environment variable
 
         case value == substituions do
          true  -> {:ok, new_value}  ## Single substitution: ${foo} == ${foo}
@@ -280,11 +290,17 @@ defmodule Hocon.Document do
 
   end
 
-  def get_or_fetch_env({:ok, _} = result, _path), do: result
-  def get_or_fetch_env({:not_found, _}, path) do
+  def get_or_fetch_env({:ok, _} = result, _path, _kind), do: result
+  def get_or_fetch_env({:not_found, _}, path, :mandatory) do
     case System.fetch_env(path) do
       {:ok, result} -> {:ok, result}
         _           -> {:not_found, path}
+    end
+  end
+  def get_or_fetch_env({:not_found, _}, path, :optional) do
+    case System.fetch_env(path) do
+      {:ok, result} -> {:ok, result}
+      _             -> {:ok, ""}
     end
   end
 
@@ -317,8 +333,14 @@ defmodule Hocon.Document do
   ##
   # transform `${key.path}` to `key.path`
   ##
-  defp get_path(substituions) do
-    String.slice(substituions, 2, String.length(substituions) - 3)
+  defp get_path(<<"${?", rest::bits>>) do
+    {:optional, String.slice(rest, 0, String.length(rest) - 1)}
+  end
+  defp get_path(<<"${", rest::bits>>) do
+    {:mandatory, String.slice(rest, 0, String.length(rest) - 1)}
+  end
+  defp get_path(other) do
+    throw {:unknown, other}
   end
 
 end

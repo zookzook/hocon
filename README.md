@@ -34,10 +34,53 @@ Then you can read and parse the HOCON-Configuration file:
 
 ```
 
-## Under development
+The HOCON configuration is very powerfull and has a lot of nice features
 
-Currently it is still being developed until all features of the specification are completed. 
-That means the API may change from version to version.
+```hocon
+{
+  // you can use comments
+  
+  # you can concat arrays like this
+  dirs += ${PWD}
+  dirs += /working-folder
+  
+  # you can concat strings like this
+  path : ${PWD}
+  path : ${path}"/working-folder"
+  
+  # Here are several ways to define `a` to the same array value:
+  // one array
+  a : [ 1, 2, 3, 4 ]
+  // two arrays that are concatenated
+  a : [ 1, 2 ] [ 3, 4 ]
+  // with self-referential substitutions
+  a : [ 1, 2 ]
+  a : ${a} [ 3, 4 ]
+ 
+  # some nested objects:
+  foo { bar { baz : 42 } }
+  
+  # you can build values with substitutions
+  foo : { a : { c : 1 } }
+  foo : ${foo.a}
+  foo : { a : 2 }
+}
+```
+
+After parsing you get this map as result (where PWD=/Users/micha/projects/elixir/hocon):
+
+```elixir
+
+  %{
+    "dirs" => ["/Users/micha/projects/elixir/hocon", "working-folder"],
+    "path" => "/Users/micha/projects/elixir/hocon/working-folder"},
+    "a" => [1, 2, 3, 4], 
+    "foo" => %{"a" => 2, "bar" => %{"baz" => 42}, "c" => 1} 
+  }
+
+```
+
+
 
 ## Spec Coverage
 
@@ -57,7 +100,7 @@ https://github.com/lightbend/config/blob/master/HOCON.md
 - [x] array concatenation
 - [x] path expressions
 - [x] path as keys
-- [ ] substitutions
+- [x] substitutions
 - [ ] includes
 - [x] conversion of numerically-indexed objects to arrays
 - [ ] allow URL for included files

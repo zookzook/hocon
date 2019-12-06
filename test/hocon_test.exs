@@ -4,15 +4,15 @@ defmodule HoconTest do
   alias Hocon.Parser
   alias Hocon.Tokenizer
 
-#  test "file" do
-#
-#    {:ok, body} = File.read("./test/data/my-configuration.conf")
-#    result = Parser.decode(body)
-#
-#    IO.puts inspect result
-#
-#    assert true
-#  end
+  test "Parse and show the config.conf" do
+
+    {:ok, body} = File.read("./test/data/config.conf")
+    result = Parser.decode(body)
+
+    IO.puts inspect result
+
+    assert true
+  end
 
   test "Parse missing root curlys" do
     assert {:ok, %{"key" => "value"}} == Hocon.decode(~s(#test missing root curlys\n{key = value}))
@@ -131,6 +131,7 @@ defmodule HoconTest do
     assert catch_throw(Hocon.decode(~s(a : ${b}\nb : ${c}\nc : ${a}))) == {:circle_detected, "b"}
     assert catch_throw(Hocon.decode(~s(a : 1\nb : 2\na : ${b}\nb : ${a}))) == {:circle_detected, "b"}
     assert catch_throw(Hocon.decode(~s(a : { b : ${a} }))) == {:circle_detected, "a"}
+    assert catch_throw(Hocon.decode(~s(a : { b : ${x} }))) == {:not_found, "x"}
   end
 
   test "Parsing unquoted strings as values" do
@@ -153,6 +154,12 @@ defmodule HoconTest do
     assert {:ok, %{"a" => [1, "a"]}} == Hocon.decode(~s(a += 1\n a+= a))
     assert {:ok, %{"a" => [1, "a", 2, 3], "b" => 3}} == Hocon.decode(~s(b : 3, a += 1\n a+= a\n a += 2\n a += ${b}))
     assert {:ok, %{"b" => 3, "dic" => %{"a" => [1, "a", 2, 3]}}} == Hocon.decode(~s(b : 3, dic { a += 1\n a+= a\n a += 2\n a += ${b} }))
+  end
+
+  test "Parsing optional substitutions " do
+    assert {:ok, %{"path" => ""}} == Hocon.decode(~s(path : ${?THE_HOME}))
+    assert {:ok, %{"a" => [1, "a", 2, ""]}} == Hocon.decode(~s(a += 1\n a+= a\n a += 2\n a += ${?b}))
+    assert {:ok, %{"bar" => %{"baz" => "", "fooz" => 42}}} == Hocon.decode(~s(bar : { fooz : 42, baz : ${?bar.foo}}))
   end
 
 end
