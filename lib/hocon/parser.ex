@@ -15,12 +15,7 @@ defmodule Hocon.Parser do
 
   """
   def decode(string, opts \\ []) do
-
     with {:ok, ast} <- Tokenizer.decode(string) do
-
-      #IO.puts "Ast #{inspect ast}"
-      #IO.puts "\n\nFixed ast #{inspect contact_rule(ast, [])}"
-
       with {[], result } <- ast
                             |> contact_rule([])
                             |> parse_root(),
@@ -123,8 +118,6 @@ defmodule Hocon.Parser do
     {rest, doc} = Document.put(result, key, value, rest)
     parse_object(rest, doc, root)
   end
-  ## todo: wir benötigen den vollständigen Pfad, um ggf. den Schlüssel aufzulösen
-  ## Idee: is_root durch Liste ersetzen
   defp parse_object([{:unquoted_string, key}, :concat_array | rest], %Document{root: root} = doc, is_root) do
     {rest, value} = parse(rest)
     value = case Document.get_raw(root, key) do
@@ -143,6 +136,9 @@ defmodule Hocon.Parser do
     {rest, value} = parse(rest)
     {rest, doc} = Document.put(result, to_string(key), value, rest)
     parse_object(rest, doc, root)
+  end
+  defp parse_object(tokens, result, root) do
+    throw {:error, "syntax error"}
   end
 
   def try_merge_object([:open_curly | rest], result) do

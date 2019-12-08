@@ -9,7 +9,7 @@ defmodule HoconTest do
     {:ok, body} = File.read("./test/data/config.conf")
     result = Parser.decode(body)
 
-    IO.puts inspect result
+    #IO.puts inspect result
 
     assert true
   end
