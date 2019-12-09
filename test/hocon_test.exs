@@ -118,6 +118,7 @@ defmodule HoconTest do
     assert {:ok, %{"foo" => "1 2"}} == Hocon.decode(~s(foo : { bar : 1, baz : 2 }\nfoo : ${foo.bar} ${foo.baz}))
     assert {:ok, %{"foo" => "1 2", "baz" => 2}} == Hocon.decode(~s(baz : 2\nfoo : { bar : 1, baz : 2 }\nfoo : ${foo.bar} ${baz}))
     assert {:ok, %{"path" => "a:b:c:d"}} == Hocon.decode(~s(path : "a:b:c"\npath : ${path}":d"))
+    assert catch_throw(Hocon.decode(~s(foo : { bar : 1 }\nfoo : ${foo.bar} ${foo.baz}))) == {:not_found, "foo.foo.baz"}
   end
 
   test "Parsing json" do

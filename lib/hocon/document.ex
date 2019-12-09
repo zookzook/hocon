@@ -95,8 +95,8 @@ defmodule Hocon.Document do
   defp resolve_optional_self_reference({:ok, _} = result, _) do
     result
   end
-  defp resolve_optional_self_reference({:not_found, _} = result, :mandatory) do
-    result
+  defp resolve_optional_self_reference({:not_found, path} = result, :mandatory) do
+    throw result
   end
   defp resolve_optional_self_reference({:not_found, _}, :optional) do
     {:ok, ""}
@@ -339,8 +339,10 @@ defmodule Hocon.Document do
   defp get_path(<<"${", rest::bits>>) do
     {:mandatory, String.slice(rest, 0, String.length(rest) - 1)}
   end
+  # coveralls-ignore-start
   defp get_path(other) do
     throw {:unknown, other}
   end
+  # coveralls-ignore-stop
 
 end

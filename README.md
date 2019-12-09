@@ -3,6 +3,7 @@ Parse [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md) configur
 
 [![Build Status](https://travis-ci.org/zookzook/hocon.svg?branch=master)](https://travis-ci.org/zookzook/hocon)
 [![Coverage Status](https://coveralls.io/repos/github/zookzook/hocon/badge.svg?branch=master)](https://coveralls.io/github/zookzook/hocon?branch=master)
+[![codebeat badge](https://codebeat.co/badges/9b57f8e9-09b2-487d-8432-b00b1a13a47a)](https://codebeat.co/projects/github-com-zookzook-hocon-master)
 [![Hex.pm](https://img.shields.io/hexpm/v/hocon.svg)](https://hex.pm/packages/hocon)
 [![Hex.pm](https://img.shields.io/hexpm/dt/hocon.svg)](https://hex.pm/packages/hocon)
 [![Hex.pm](https://img.shields.io/hexpm/dw/hocon.svg)](https://hex.pm/packages/hocon)
