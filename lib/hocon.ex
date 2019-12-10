@@ -1,32 +1,7 @@
 defmodule Hocon do
   @moduledoc"""
 
-  This module paresed and decodes a hocon configuration string.
-
-  ## [specification](https://github.com/lightbend/config/blob/master/HOCON.md) coverages:
-
-  - [x] parsing JSON
-  - [x] comments
-  - [x] omit root braces
-  - [x] key-value separator
-  - [x] commas are optional if newline is present
-  - [x] whitespace
-  - [x] duplicate keys and object merging
-  - [x] unquoted strings
-  - [x] multi-line strings
-  - [x] value concatenation
-  - [x] object concatenation
-  - [x] array concatenation
-  - [x] path expressions
-  - [x] path as keys
-  - [x] substitutions
-  - [ ] includes
-  - [x] conversion of numerically-indexed objects to arrays
-  - [ ] allow URL for included files
-  - [ ] duration unit format
-  - [ ] period unit format
-  - [x] size unit format
-
+  This module paresed and decodes a [hocon](https://github.com/lightbend/config/blob/master/HOCON.md) configuration string.
 
   ## Example
 
@@ -40,13 +15,13 @@ defmodule Hocon do
 
   The Parser returns a map, because in Elixir it is a common use case to use pattern matching on maps to
   extract specific values and keys. Therefore the `Hocon.decode/2` function returns a map. To support
-  interpreting a value with some family of units, you can call some conversion functions like `get_bytes/1`.
+  interpreting a value with some family of units, you can call some conversion functions like `as_bytes/1`.
 
   ## Example
 
        iex> conf = ~s(limit : "512KB")
        iex> {:ok, %{"limit" => limit}} = Hocon.decode(conf)
-       iex> Hocon.get_bytes(limit)
+       iex> Hocon.as_bytes(limit)
        524288
 
   """
@@ -137,59 +112,125 @@ defmodule Hocon do
   in case of errors.
   """
   def decode!(string, opts \\ []) do
-    with {:ok, result} <- Parser.decode(string, opts) do
-      result
+    Parser.decode!(string, opts)
+  end
+
+  @doc """
+  Returns a value for the `keypath` from a map or a successfull parse HOCON string.
+
+  ## Example
+      iex> conf = Hocon.decode!(~s(a { b { c : "10kb" } }))
+      %{"a" => %{"b" => %{"c" => "10kb"}}}
+      iex> Hocon.get(conf, "a.b.c")
+      "10kb"
+      iex> Hocon.get(conf, "a.b.d")
+      nil
+      iex> Hocon.get(conf, "a.b.d", "1kb")
+      "1kb"
+  """
+  def get(root, keypath, default \\ nil) do
+    keypath = keypath
+              |> String.split(".")
+              |> Enum.map(fn str -> String.trim(str) end)
+    case get_in(root, keypath) do
+       nil -> default
+        other -> other
     end
   end
 
+  @doc """
+  Same a `get/3` but the value is interpreted like a number by using the power of 2.
+
+  ## Example
+      iex> conf = Hocon.decode!(~s(a { b { c : "10kb" } }))
+      %{"a" => %{"b" => %{"c" => "10kb"}}}
+      iex> Hocon.get_bytes(conf, "a.b.c")
+      10240
+      iex> Hocon.get_bytes(conf, "a.b.d")
+      nil
+      iex> Hocon.get_bytes(conf, "a.b.d", 1024)
+      1024
+  """
+  def get_bytes(root, keypath, default \\ nil) do
+    keypath = keypath
+              |> String.split(".")
+              |> Enum.map(fn str -> String.trim(str) end)
+    case get_in(root, keypath) do
+      nil -> default
+      other -> as_bytes(other)
+    end
+  end
+
+  @doc """
+  Same a `get/3` but the value is interpreted like a number by using the power of 10.
+
+  ## Example
+      iex> conf = Hocon.decode!(~s(a { b { c : "10kb" } }))
+      %{"a" => %{"b" => %{"c" => "10kb"}}}
+      iex> Hocon.get_bytes(conf, "a.b.c")
+      10240
+      iex> Hocon.get_bytes(conf, "a.b.d")
+      nil
+      iex> Hocon.get_bytes(conf, "a.b.d", 1024)
+      1024
+  """
+  def get_size(root, keypath, default \\ nil) do
+    keypath = keypath
+              |> String.split(".")
+              |> Enum.map(fn str -> String.trim(str) end)
+    case get_in(root, keypath) do
+      nil -> default
+      other -> as_size(other)
+    end
+  end
 
   @doc """
   Returns the size of the `string` by using the power of 2.
 
   ## Example
-      iex> Hocon.get_bytes("512kb")
+      iex> Hocon.as_bytes("512kb")
       524288
-      iex> Hocon.get_bytes("125 gigabytes")
+      iex> Hocon.as_bytes("125 gigabytes")
       134217728000
   """
-  def get_bytes(value) when is_number(value), do: value
-  def get_bytes(string) when is_binary(string) do
-    get_bytes(Regex.named_captures(~r/(?<value>\d+)(\W)?(?<unit>[[:alpha:]]+)?/, String.downcase(string)))
+  def as_bytes(value) when is_number(value), do: value
+  def as_bytes(string) when is_binary(string) do
+    as_bytes(Regex.named_captures(~r/(?<value>\d+)(\W)?(?<unit>[[:alpha:]]+)?/, String.downcase(string)))
   end
-  def get_bytes(%{"unit" => "", "value" => value}), do: parse_integer(value, 1)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(b byte bytes), do: parse_integer(value, 1)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(k kb kilobyte kilobytes), do: parse_integer(value, @kb)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(m mb megabyte megabytes), do: parse_integer(value, @mb)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(g gb gigabyte gigabytes), do: parse_integer(value, @gb)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(t tb terabyte terabytes), do: parse_integer(value, @tb)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(p pb petabyte petabytes), do: parse_integer(value, @pb)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(e eb exabyte exabytes), do: parse_integer(value, @eb)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(z zb zettabyte zettabytes), do: parse_integer(value, @zb)
-  def get_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(y yb yottabyte yottabytes), do: parse_integer(value, @yb)
+  def as_bytes(%{"unit" => "", "value" => value}), do: parse_integer(value, 1)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(b byte bytes), do: parse_integer(value, 1)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(k kb kilobyte kilobytes), do: parse_integer(value, @kb)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(m mb megabyte megabytes), do: parse_integer(value, @mb)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(g gb gigabyte gigabytes), do: parse_integer(value, @gb)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(t tb terabyte terabytes), do: parse_integer(value, @tb)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(p pb petabyte petabytes), do: parse_integer(value, @pb)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(e eb exabyte exabytes), do: parse_integer(value, @eb)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(z zb zettabyte zettabytes), do: parse_integer(value, @zb)
+  def as_bytes(%{"unit" => unit, "value" => value}) when unit in ~w(y yb yottabyte yottabytes), do: parse_integer(value, @yb)
 
   @doc """
   Returns the size of the `string` by using the power of 10.
 
   ## Example
-      iex> Hocon.get_size("512kb")
+      iex> Hocon.as_size("512kb")
       512000
-      iex> Hocon.get_size("125 gigabytes")
+      iex> Hocon.as_size("125 gigabytes")
       125000000000
   """
-  def get_size(value) when is_number(value), do: value
-  def get_size(string) when is_binary(string) do
-    get_size(Regex.named_captures(~r/(?<value>\d+)(\W)?(?<unit>[[:alpha:]]+)?/, String.downcase(string)))
+  def as_size(value) when is_number(value), do: value
+  def as_size(string) when is_binary(string) do
+    as_size(Regex.named_captures(~r/(?<value>\d+)(\W)?(?<unit>[[:alpha:]]+)?/, String.downcase(string)))
   end
-  def get_size(%{"unit" => "", "value" => value}), do: parse_integer(value, 1)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(b byte bytes), do: parse_integer(value, 1)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(k kb kilobyte kilobytes), do: parse_integer(value, @kb_10)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(m mb megabyte megabytes), do: parse_integer(value, @mb_10)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(g gb gigabyte gigabytes), do: parse_integer(value, @gb_10)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(t tb terabyte terabytes), do: parse_integer(value, @tb_10)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(p pb petabyte petabytes), do: parse_integer(value, @pb_10)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(e eb exabyte exabytes), do: parse_integer(value, @eb_10)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(z zb zettabyte zettabytes), do: parse_integer(value, @zb_10)
-  def get_size(%{"unit" => unit, "value" => value}) when unit in ~w(y yb yottabyte yottabytes), do: parse_integer(value, @yb_10)
+  def as_size(%{"unit" => "", "value" => value}), do: parse_integer(value, 1)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(b byte bytes), do: parse_integer(value, 1)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(k kb kilobyte kilobytes), do: parse_integer(value, @kb_10)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(m mb megabyte megabytes), do: parse_integer(value, @mb_10)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(g gb gigabyte gigabytes), do: parse_integer(value, @gb_10)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(t tb terabyte terabytes), do: parse_integer(value, @tb_10)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(p pb petabyte petabytes), do: parse_integer(value, @pb_10)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(e eb exabyte exabytes), do: parse_integer(value, @eb_10)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(z zb zettabyte zettabytes), do: parse_integer(value, @zb_10)
+  def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(y yb yottabyte yottabytes), do: parse_integer(value, @yb_10)
 
   defp parse_integer(string, factor) do
     with {result, ""} <- Integer.parse(string) do

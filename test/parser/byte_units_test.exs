@@ -21,9 +21,9 @@ defmodule Parser.ByteUnitsTest do
   @zb_10 @eb_10 * 1000
   @yb_10 @zb_10 * 1000
 
-  test "get_bytes/1" do
-    assert Hocon.get_bytes(10) == 10
-    assert Hocon.get_bytes("10") == 10
+  test "as_bytes/1" do
+    assert Hocon.as_bytes(10) == 10
+    assert Hocon.as_bytes("10") == 10
     assert assert_bytes(~w(b byte bytes), 1) == true
     assert assert_bytes(~w(k kb kilobyte kilobytes), @kb) == true
     assert assert_bytes(~w(m mb megabyte megabytes), @mb) == true
@@ -35,9 +35,9 @@ defmodule Parser.ByteUnitsTest do
     assert assert_bytes(~w(y yb yottabyte yottabytes), @yb) == true
   end
 
-  test "get_size/1" do
-    assert Hocon.get_size(10) == 10
-    assert Hocon.get_size("10") == 10
+  test "as_size/1" do
+    assert Hocon.as_size(10) == 10
+    assert Hocon.as_size("10") == 10
     assert assert_size(~w(b byte bytes), 1) == true
     assert assert_size(~w(k kb kilobyte kilobytes), @kb_10) == true
     assert assert_size(~w(m mb megabyte megabytes), @mb_10) == true
@@ -55,8 +55,8 @@ defmodule Parser.ByteUnitsTest do
       result = value * factor
       string_1 = to_string(value) <> " " <> unit
       string_2 = to_string(value) <> unit
-      Hocon.get_bytes(string_1) == result &&
-      Hocon.get_bytes(string_2) == result
+      Hocon.as_bytes(string_1) == result &&
+      Hocon.as_bytes(string_2) == result
     end)
   end
 
@@ -66,8 +66,8 @@ defmodule Parser.ByteUnitsTest do
       result = value * factor
       string_1 = to_string(value) <> " " <> unit
       string_2 = to_string(value) <> unit
-      Hocon.get_size(string_1) == result &&
-      Hocon.get_size(string_2) == result
+      Hocon.as_size(string_1) == result &&
+      Hocon.as_size(string_2) == result
     end)
   end
 end

@@ -15,15 +15,28 @@ defmodule Hocon.Parser do
 
   """
   def decode(string, opts \\ []) do
+    try do
+      {:ok, decode!(string, opts)}
+    catch
+      error -> error
+    end
+
+  end
+
+  @doc"""
+  Similar to `decode/2` except it will unwrap the error tuple and raise
+  in case of errors.
+  """
+  def decode!(string, opts \\ []) do
     with {:ok, ast} <- Tokenizer.decode(string) do
       with {[], result } <- ast
                             |> contact_rule([])
-                            |> parse_root(),
-                result   <- Document.convert(result, opts) do
-        {:ok, result}
+                            |> parse_root() do
+        Document.convert(result, opts)
       end
     end
   end
+
 
   def contact_rule([], result) do
     Enum.reverse(result)
@@ -137,7 +150,7 @@ defmodule Hocon.Parser do
     {rest, doc} = Document.put(result, to_string(key), value, rest)
     parse_object(rest, doc, root)
   end
-  defp parse_object(tokens, result, root) do
+  defp parse_object(_tokens, _result, _root) do
     throw {:error, "syntax error"}
   end
 
