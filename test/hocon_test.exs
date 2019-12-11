@@ -2,7 +2,6 @@ defmodule HoconTest do
   use ExUnit.Case, async: true
 
   alias Hocon.Parser
-  alias Hocon.Tokenizer
 
   test "Parse and show the config.conf" do
     {:ok, body} = File.read("./test/data/config.conf")
