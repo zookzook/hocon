@@ -27,6 +27,7 @@ defmodule Hocon do
   """
 
   alias Hocon.Parser
+  alias Hocon.Period
 
   ## size units, power of 2
   @kb 1024
@@ -217,6 +218,29 @@ defmodule Hocon do
   end
 
   @doc """
+  Same a `get/3` but the value is interpreted like a duration format in `Hocon.Period`.
+
+  ## Example
+      iex> conf = Hocon.decode!(~s(a { b { c : "3 weeks" } }))
+      %{"a" => %{"b" => %{"c" => "30s"}}}
+      iex> Hocon.get_period(conf, "a.b.c")
+      %Hocon.Period{days: 21, months: 0, years: 0}
+      iex> Hocon.get_period(conf, "a.b.d")
+      nil
+      iex> Hocon.get_period(conf, "a.b.d", 7)
+      7
+  """
+  def get_period(root, keypath, default \\ nil) do
+    keypath = keypath
+              |> String.split(".")
+              |> Enum.map(fn str -> String.trim(str) end)
+    case get_in(root, keypath) do
+      nil -> default
+      other -> as_period(other)
+    end
+  end
+
+  @doc """
   Returns the size of the `string` by using the power of 2.
 
   ## Example
@@ -286,6 +310,30 @@ defmodule Hocon do
   def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(h hour hours), do: parse_integer(value, @h)
   def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(d day days), do: parse_integer(value, @d)
 
+  @doc """
+  Returns the duration of the `string` as `Hocon.Period`.
+
+  ## Example
+      iex> Hocon.as_period("3 weeks")
+      %Hocon.Period{days: 21, months: 0, years: 0}
+      iex> Hocon.as_period("14d")
+      %Hocon.Period{days: 14, months: 0, years: 0}
+  """
+  def as_period(value) when is_number(value), do: Period.days(value)
+  def as_period(string) when is_binary(string) do
+    as_period(Regex.named_captures(~r/(?<value>\d+)(\W)?(?<unit>[[:alpha:]]+)?/, String.downcase(string)))
+  end
+  def as_period(%{"unit" => "", "value" => value}), do: value |> parse_integer() |> Period.days()
+  def as_period(%{"unit" => unit, "value" => value}) when unit in ~w(d day days), do: value |> parse_integer() |> Period.days()
+  def as_period(%{"unit" => unit, "value" => value}) when unit in ~w(w week weeks), do: value |> parse_integer() |> Period.weeks()
+  def as_period(%{"unit" => unit, "value" => value}) when unit in ~w(m mo month months), do: value |> parse_integer() |> Period.months()
+  def as_period(%{"unit" => unit, "value" => value}) when unit in ~w(y year years), do: value |> parse_integer() |> Period.years()
+
+  defp parse_integer(string) do
+    with {result, ""} <- Integer.parse(string) do
+      result
+    end
+  end
   defp parse_integer(string, factor) do
     with {result, ""} <- Integer.parse(string) do
       result * factor

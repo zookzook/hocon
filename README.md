@@ -81,8 +81,6 @@ After parsing you get this map as result (where PWD=/Users/micha/projects/elixir
 
 ```
 
-
-
 ## Spec Coverage
 
 https://github.com/lightbend/config/blob/master/HOCON.md
@@ -106,5 +104,5 @@ https://github.com/lightbend/config/blob/master/HOCON.md
 - [x] conversion of numerically-indexed objects to arrays
 - [ ] allow URL for included files
 - [x] duration unit format
-- [ ] period unit format
+- [x] period unit format
 - [x] size unit format

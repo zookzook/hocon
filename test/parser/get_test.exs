@@ -1,6 +1,7 @@
 defmodule Parser.GetTest do
   use ExUnit.Case, async: true
 
+  alias Hocon.Period
   test "get a nested value" do
     conf = Hocon.decode!(~s(a { b { c : "10kb" } }))
     assert "10kb" == Hocon.get(conf, "a.b.c", nil)
@@ -23,6 +24,12 @@ defmodule Parser.GetTest do
     conf = Hocon.decode!(~s(a { b { c : "3d" } }))
     assert (3*1000*60*60*24) == Hocon.get_milliseconds(conf, "a.b.c", nil)
     assert (10*1000) == Hocon.get_milliseconds(conf, "a.b.d", 10*1000)
+  end
+
+  test "get a nested value as period" do
+    conf = Hocon.decode!(~s(a { b { c : "3d" } }))
+    assert %Period{days: 3, months: 0, years: 0} == Hocon.get_period(conf, "a.b.c", nil)
+    assert %Period{days: 3, months: 0, years: 0} == Hocon.get_period(conf, "a.b.d", Period.days(3))
   end
 
 end
