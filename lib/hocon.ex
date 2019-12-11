@@ -48,6 +48,15 @@ defmodule Hocon do
   @zb_10 @eb_10 * 1000
   @yb_10 @zb_10 * 1000
 
+  ## time units, the base is millisconds
+  @ns 0.000001
+  @us 0.001
+  @ms 1
+  @s @ms * 1000
+  @m @s * 60
+  @h @m * 60
+  @d @h * 24
+
   @doc"""
 
   Parses and decodes a hocon string and returns a map
@@ -167,12 +176,12 @@ defmodule Hocon do
   ## Example
       iex> conf = Hocon.decode!(~s(a { b { c : "10kb" } }))
       %{"a" => %{"b" => %{"c" => "10kb"}}}
-      iex> Hocon.get_bytes(conf, "a.b.c")
-      10240
-      iex> Hocon.get_bytes(conf, "a.b.d")
+      iex> Hocon.get_size(conf, "a.b.c")
+      10000
+      iex> Hocon.get_size(conf, "a.b.d")
       nil
-      iex> Hocon.get_bytes(conf, "a.b.d", 1024)
-      1024
+      iex> Hocon.get_size(conf, "a.b.d", 1000)
+      1000
   """
   def get_size(root, keypath, default \\ nil) do
     keypath = keypath
@@ -181,6 +190,29 @@ defmodule Hocon do
     case get_in(root, keypath) do
       nil -> default
       other -> as_size(other)
+    end
+  end
+
+  @doc """
+  Same a `get/3` but the value is interpreted like a duration format in milliseconds.
+
+  ## Example
+      iex> conf = Hocon.decode!(~s(a { b { c : "30s" } }))
+      %{"a" => %{"b" => %{"c" => "30s"}}}
+      iex> Hocon.get_milliseconds(conf, "a.b.c")
+      30000
+      iex> Hocon.get_milliseconds(conf, "a.b.d")
+      nil
+      iex> Hocon.get_milliseconds(conf, "a.b.d", 1000)
+      1000
+  """
+  def get_milliseconds(root, keypath, default \\ nil) do
+    keypath = keypath
+              |> String.split(".")
+              |> Enum.map(fn str -> String.trim(str) end)
+    case get_in(root, keypath) do
+      nil -> default
+      other -> as_milliseconds(other)
     end
   end
 
@@ -231,6 +263,28 @@ defmodule Hocon do
   def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(e eb exabyte exabytes), do: parse_integer(value, @eb_10)
   def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(z zb zettabyte zettabytes), do: parse_integer(value, @zb_10)
   def as_size(%{"unit" => unit, "value" => value}) when unit in ~w(y yb yottabyte yottabytes), do: parse_integer(value, @yb_10)
+
+  @doc """
+  Returns the time of the `string` as milliseconds.
+
+  ## Example
+      iex> Hocon.as_milliseconds("30s")
+      30000
+      iex> Hocon.as_milliseconds("10us")
+      0.01
+  """
+  def as_milliseconds(value) when is_number(value), do: value
+  def as_milliseconds(string) when is_binary(string) do
+    as_milliseconds(Regex.named_captures(~r/(?<value>\d+)(\W)?(?<unit>[[:alpha:]]+)?/, String.downcase(string)))
+  end
+  def as_milliseconds(%{"unit" => "", "value" => value}), do: parse_integer(value, 1)
+  def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(ns nano nanos nanosecond nanoseconds), do: parse_integer(value, @ns)
+  def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(us micro micros microsecond microseconds), do: parse_integer(value, @us)
+  def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(ms milli millis millisecond millisecond), do: parse_integer(value, @ms)
+  def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(s second seconds), do: parse_integer(value, @s)
+  def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(m minute minutes), do: parse_integer(value, @m)
+  def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(h hour hours), do: parse_integer(value, @h)
+  def as_milliseconds(%{"unit" => unit, "value" => value}) when unit in ~w(d day days), do: parse_integer(value, @d)
 
   defp parse_integer(string, factor) do
     with {result, ""} <- Integer.parse(string) do

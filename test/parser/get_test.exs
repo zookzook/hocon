@@ -19,4 +19,10 @@ defmodule Parser.GetTest do
     assert (10*1000) == Hocon.get_size(conf, "a.b.d", 10*1000)
   end
 
+  test "get a nested value as duration" do
+    conf = Hocon.decode!(~s(a { b { c : "3d" } }))
+    assert (3*1000*60*60*24) == Hocon.get_milliseconds(conf, "a.b.c", nil)
+    assert (10*1000) == Hocon.get_milliseconds(conf, "a.b.d", 10*1000)
+  end
+
 end
