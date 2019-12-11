@@ -47,6 +47,9 @@ defmodule Hocon.Parser do
   def contact_rule([{:unquoted_string, simple_a}, :ws, int_b|rest], result) when is_number(int_b) do
     contact_rule([{:unquoted_string, simple_a <> " " <> to_string(int_b)} | rest], result)
   end
+  def contact_rule([int_a, {:unquoted_string, string_b} |rest], result) when is_number(int_a) do
+    contact_rule([{:unquoted_string, to_string(int_a) <> string_b} | rest], result)
+  end
   def contact_rule([int_a, :ws, int_b|rest], result) when is_number(int_a) and is_number(int_b) do
     contact_rule([{:unquoted_string, to_string(int_a) <> " " <> to_string(int_b)} | rest], result)
   end

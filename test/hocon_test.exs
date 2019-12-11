@@ -16,20 +16,6 @@ defmodule HoconTest do
     assert {:ok, %{"key" => "value"}} == Hocon.decode(~s(key = value))
   end
 
-  test "Contact unquoted strings to one string" do
-    {:ok, ast} = Tokenizer.decode(~s({}))
-    assert [:open_curly, :close_curly] == Parser.contact_rule(ast, [])
-
-    {:ok, ast} = Tokenizer.decode(~s({a b c}))
-    assert [:open_curly, {:unquoted_string, "a b c"}, :close_curly] == Parser.contact_rule(ast, [])
-
-    {:ok, ast} = Tokenizer.decode(~s({a 3 c}))
-    assert [:open_curly, {:unquoted_string, "a 3 c"}, :close_curly] == Parser.contact_rule(ast, [])
-
-    {:ok, ast} = Tokenizer.decode(~s({1 3 c}))
-    assert [:open_curly, {:unquoted_string, "1 3 c"}, :close_curly] == Parser.contact_rule(ast, [])
-  end
-
   test "Parse simple array" do
     assert {:ok, %{"a" => [1, 2, 3, 4]}} == Hocon.decode(~s( a = [1,2,3,4,]))
     assert {:ok, %{"a" => [1, 2, 3, 4]}} == Hocon.decode(~s( a = [1,2,3,4]))
@@ -91,19 +77,12 @@ defmodule HoconTest do
     assert {:ok, %{"key" => "horse is my favorite animal"}} == Hocon.decode(~s(key : "horse " is my favorite animal))
   end
 
-
   test "Parsing json" do
     assert {:ok, %{"a" => %{"b" => "c"}}} == Hocon.decode(~s({"a" : { "b" : "c"}}))
     assert {:ok, %{"a" => [1, 2, 3, 4]}} == Hocon.decode(~s({"a" : [1,2,3,4]}))
     assert {:ok, %{"a" => "b", "c" => ["a", "b", "c"], "x" => 10.99}} == Hocon.decode(~s({"a" : "b", "c" : ["a", "b", "c"], "x" : 10.99}))
   end
 
-  test "Parsing unquoted strings as values" do
-    assert {:ok, %{"a" => "c"}} == Hocon.decode(~s({a : b\n a : c}))
-  end
 
-  test "Parsing quoted strings as keys" do
-    assert {:ok, %{"a" => %{"b" => %{"c" => 1}}}} == Hocon.decode(~s({"a" { "b" { c : 1 }}}))
-  end
 
 end

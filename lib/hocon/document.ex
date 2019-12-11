@@ -95,7 +95,7 @@ defmodule Hocon.Document do
   defp resolve_optional_self_reference({:ok, _} = result, _) do
     result
   end
-  defp resolve_optional_self_reference({:not_found, path} = result, :mandatory) do
+  defp resolve_optional_self_reference({:not_found, _path} = result, :mandatory) do
     throw result
   end
   defp resolve_optional_self_reference({:not_found, _}, :optional) do
