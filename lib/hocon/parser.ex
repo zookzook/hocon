@@ -12,7 +12,7 @@ defmodule Hocon.Parser do
     * `:convert_numerically_indexed` - if set to true then numerically-indexed objects are converted to arrays
     * `:strict_conversion` - if set to `true` then numerically-indexed objects are only converted to arrays
        if all keys are numbers
-
+    * `:file_resolver` - a module which uses the `Hocon.Resolver` behaviour. If missing the `Hocon.FileResolver` is used as default.
   """
   def decode(string, opts \\ []) do
     try do
@@ -31,7 +31,7 @@ defmodule Hocon.Parser do
     with {:ok, ast} <- Tokenizer.decode(string) do
       with {[], result } <- ast
                             |> contact_rule([])
-                            |> parse_root() do
+                            |> parse_root(opts) do
         Document.convert(result, opts)
       end
     end
@@ -65,53 +65,53 @@ defmodule Hocon.Parser do
     contact_rule(rest, [other | result])
   end
 
-  def parse_root([:open_curly | rest]) do
-    parse_object(rest, Document.new())
+  def parse_root([:open_curly | rest], opts) do
+    parse_object(rest, Document.new(), false, opts)
   end
-  def parse_root(tokens) do
-    parse_object(tokens, Document.new(), true)
+  def parse_root(tokens, opts) do
+    parse_object(tokens, Document.new(), true, opts)
   end
 
-  def parse_value([]) do
+  def parse_value([], _opts) do
     {[], nil}
   end
-  def parse([:open_curly | rest]) do
-    parse_object(rest, Document.new())
+  def parse([:open_curly | rest], opts) do
+    parse_object(rest, Document.new(), false, opts)
   end
-  def parse([:open_square | rest]) do
-    parse_array(rest, [])
+  def parse([:open_square | rest], opts) do
+    parse_array(rest, [], opts)
   end
-  def parse([{:string, str} | rest]) do
+  def parse([{:string, str} | rest], _opts) do
     {rest, str}
   end
-  def parse([{:unquoted_string, _} = value | rest]) do
+  def parse([{:unquoted_string, _} = value | rest], _opts) do
     {rest, value}
   end
-  def parse([number | rest]) when is_number(number) do
+  def parse([number | rest], _opts) when is_number(number) do
     {rest, number}
   end
-  def parse([true | rest]) do
+  def parse([true | rest], _opts) do
     {rest, true}
   end
-  def parse([false | rest]) do
+  def parse([false | rest], _opts) do
     {rest, false}
   end
-  def parse([nil | rest]) do
+  def parse([nil | rest], _opts) do
     {rest, nil}
   end
-  def parse(_other) do
+  def parse(_other, _opts) do
     throw {:error, "syntax error"}
   end
 
   ##
   # loads and parse the content of the `file`
   ##
-  defp load_configuration_file(file) do
-    with {:ok, conf}   <- load_contents_of_file(file),
+  defp load_configuration_file(file, opts) do
+    with {:ok, conf}   <- load_contents_of_file(file, opts),
          {:ok, ast}    <- Tokenizer.decode(conf),
          {[], result } <- ast
                           |> contact_rule([])
-                          |> parse_root() do
+                          |> parse_root(opts) do
       {:ok, result}
     else
       {:error, reason} -> {:error, reason}
@@ -121,75 +121,75 @@ defmodule Hocon.Parser do
   ##
   # loads possible extension in combination with the filename
   ##
-  defp load_contents_of_file(file) do
+  defp load_contents_of_file(file, opts) do
     extenions = case Path.extname(file) do
        ""  -> [".conf", ".json", ".properties"]
        ext -> [ext]
     end
 
-    file = Path.rootname(file)
-    case Enum.find(extenions, fn ext -> File.exists?(file <> ext) end) do
+    resolver = Keyword.get(opts, :resolver, Hocon.FileResolver)
+    file     = Path.rootname(file)
+    case Enum.find(extenions, fn ext -> resolver.exists?(file <> ext) end) do
       nil -> {:error, :not_found}
-      ext -> File.read(file <> ext)
+      ext -> resolver.load(file <> ext)
     end
   end
 
-  defp parse_object(tokens, result, is_root \\ false)
-  defp parse_object([], result, true) do
+  defp parse_object([], result, true, _opts) do
     {[], result}
   end
-  defp parse_object([:close_curly | rest], result, false) do
-    try_merge_object(rest, result)
+  defp parse_object([:close_curly | rest], result, false, opts) do
+    try_merge_object(rest, result, opts)
   end
-  defp parse_object([:comma | rest], result, root) do
-    parse_object(rest, result, root)
+  defp parse_object([:comma | rest], result, root, opts) do
+    parse_object(rest, result, root, opts)
   end
-  defp parse_object([:nl | rest], result, root) do
-    parse_object(rest, result, root)
+  defp parse_object([:nl | rest], result, root, opts) do
+    parse_object(rest, result, root, opts)
   end
-  defp parse_object([{:string, key}, :open_curly | rest], result, root) do
-    {rest, value} = parse_object(rest, Document.new())
-    {rest, doc} = Document.put(result, key, value, rest)
-    parse_object(rest, doc, root)
+  defp parse_object([{:string, key}, :open_curly | rest], result, root, opts) do
+    {rest, value} = parse_object(rest, Document.new(), false, opts)
+    {rest, doc} = Document.put(result, key, value, rest, opts)
+    parse_object(rest, doc, root, opts)
   end
-  defp parse_object([{:string, key}, :colon | rest], result, root) do
-    {rest, value} = parse(rest)
-    {rest, doc} = Document.put(result, key, value, rest)
-    parse_object(rest, doc, root)
+  defp parse_object([{:string, key}, :colon | rest], result, root, opts) do
+    {rest, value} = parse(rest, opts)
+    {rest, doc} = Document.put(result, key, value, rest, opts)
+    parse_object(rest, doc, root, opts)
   end
-  defp parse_object([{:unquoted_string, key}, :open_curly | rest], result, root) do
-    {rest, value} = parse_object(rest, Document.new())
-    {rest, doc} = Document.put(result, key, value, rest)
-    parse_object(rest, doc, root)
+  defp parse_object([{:unquoted_string, key}, :open_curly | rest], result, root, opts) do
+    {rest, value} = parse_object(rest, Document.new(), false, opts)
+    {rest, doc} = Document.put(result, key, value, rest, opts)
+    parse_object(rest, doc, root, opts)
   end
-  defp parse_object([{:unquoted_string, key}, :colon | rest], result, root) do
-    {rest, value} = parse(rest)
-    {rest, doc} = Document.put(result, key, value, rest)
-    parse_object(rest, doc, root)
+  defp parse_object([{:unquoted_string, key}, :colon | rest], result, root, opts) do
+    {rest, value} = parse(rest, opts)
+    {rest, doc} = Document.put(result, key, value, rest, opts)
+    parse_object(rest, doc, root, opts)
   end
-  defp parse_object([{:unquoted_string, key}, :concat_array | rest], %Document{root: root} = doc, is_root) do
-    {rest, value} = parse(rest)
+  defp parse_object([{:unquoted_string, key}, :concat_array | rest], %Document{root: root} = doc, is_root, opts) do
+    {rest, value} = parse(rest, opts)
     value = case Document.get_raw(root, key) do
       {:ok, array} when is_list(array) -> array ++ [value]
       _                                -> [value]
     end
-    {rest, doc} = Document.put(doc, key, value, rest)
-    parse_object(rest, doc, is_root)
+    {rest, doc} = Document.put(doc, key, value, rest, opts)
+    parse_object(rest, doc, is_root, opts)
   end
-  defp parse_object([key, :open_curly | rest], result, root) do
-    {rest, value} = parse_object(rest, Document.new())
-    {rest, doc} = Document.put(result, to_string(key), value, rest)
-    parse_object(rest, doc, root)
+  defp parse_object([key, :open_curly | rest], result, root, opts) do
+    {rest, value} = parse_object(rest, Document.new(), false, opts)
+    {rest, doc} = Document.put(result, to_string(key), value, rest, opts)
+    parse_object(rest, doc, root, opts)
   end
-  defp parse_object([key, :colon | rest], result, root) do
-    {rest, value} = parse(rest)
-    {rest, doc} = Document.put(result, to_string(key), value, rest)
-    parse_object(rest, doc, root)
+  defp parse_object([key, :colon | rest], result, root, opts) do
+    {rest, value} = parse(rest, opts)
+    {rest, doc} = Document.put(result, to_string(key), value, rest, opts)
+    parse_object(rest, doc, root, opts)
   end
-  defp parse_object([:include | rest], result, root) do
-    parse_include(rest, result, root)
+  defp parse_object([:include | rest], result, root, opts) do
+    parse_include(rest, result, root, opts)
   end
-  defp parse_object(_tokens, _result, _root) do
+  defp parse_object(_tokens, _result, _root, _opts) do
     throw {:error, "syntax error"}
   end
 
@@ -198,27 +198,27 @@ defmodule Hocon.Parser do
   # * required()
   # * file location
   ##
-  defp parse_include([:required, :open_round | rest], result, root) do
+  defp parse_include([:required, :open_round | rest], result, root, opts) do
     {rest, file} = parse_file_location(rest)
-    result = case load_configuration_file(file) do
+    result = case load_configuration_file(file, opts) do
       {:ok, doc} -> Document.merge(result, doc)
       _          -> throw {:error, "file #{file} was not found"}
     end
-    parse_required_close(rest, result, root)
+    parse_required_close(rest, result, root, opts)
   end
-  defp parse_include(rest, result, root) do
+  defp parse_include(rest, result, root, opts) do
     {rest, file} = parse_file_location(rest)
-    result = case load_configuration_file(file) do
+    result = case load_configuration_file(file, opts) do
       {:ok, doc} -> Document.merge(result, doc)
       _          -> result
     end
-    parse_object(rest, result, root)
+    parse_object(rest, result, root, opts)
   end
 
-  def parse_required_close([:close_round | rest], result, root) do
-    parse_object(rest, result, root)
+  def parse_required_close([:close_round | rest], result, root, opts) do
+    parse_object(rest, result, root, opts)
   end
-  def parse_required_close(_tokens, _result, _root) do
+  def parse_required_close(_tokens, _result, _root, _opts) do
     throw {:error, "syntax error: ')' required "}
   end
 
@@ -245,47 +245,47 @@ defmodule Hocon.Parser do
     throw {:error, "syntax error: file location required"}
   end
 
-  def try_merge_object([:open_curly | rest], result) do
-    with {rest, other} <- parse_object(rest, Document.new()) do
+  def try_merge_object([:open_curly | rest], result, opts) do
+    with {rest, other} <- parse_object(rest, Document.new(), false, opts) do
          {rest, Document.merge(result, other)}
      end
   end
-  def try_merge_object([:nl | rest], result) do
+  def try_merge_object([:nl | rest], result, _opts) do
     {rest, result}
   end
-  def try_merge_object(tokens, result) do
+  def try_merge_object(tokens, result, _opts) do
     {tokens, result}
   end
 
-  defp parse_array([:close_square| rest], result) do
-    try_concat_array(rest, Enum.reverse(result))
+  defp parse_array([:close_square| rest], result, opts) do
+    try_concat_array(rest, Enum.reverse(result), opts)
   end
-  defp parse_array([:comma, :close_square | rest], result) do
-    try_concat_array(rest, Enum.reverse(result))
+  defp parse_array([:comma, :close_square | rest], result, opts) do
+    try_concat_array(rest, Enum.reverse(result), opts)
   end
-  defp parse_array([:comma | rest], result) do
-    parse_array(rest, result)
+  defp parse_array([:comma | rest], result, opts) do
+    parse_array(rest, result, opts)
   end
-  defp parse_array([:nl, :close_square | rest], result) do
-    try_concat_array(rest, Enum.reverse(result))
+  defp parse_array([:nl, :close_square | rest], result, opts) do
+    try_concat_array(rest, Enum.reverse(result), opts)
   end
-  defp parse_array([:nl | rest], result) do
-    parse_array(rest, result)
+  defp parse_array([:nl | rest], result, opts) do
+    parse_array(rest, result, opts)
   end
-  defp parse_array(value, result) do
-    {rest, value} = parse(value)
-    parse_array(rest, [value | result])
+  defp parse_array(value, result, opts) do
+    {rest, value} = parse(value, opts)
+    parse_array(rest, [value | result], opts)
   end
 
-  def try_concat_array([:open_square | rest], result) do
-    with {rest, other} <- parse_array(rest, []) do
+  def try_concat_array([:open_square | rest], result, opts) do
+    with {rest, other} <- parse_array(rest, [], opts) do
       {rest, result ++ other}
     end
   end
-  def try_concat_array([:nl | rest], result) do
+  def try_concat_array([:nl | rest], result, _opts) do
     {rest, result}
   end
-  def try_concat_array(tokens, result) do
+  def try_concat_array(tokens, result, _opts) do
     {tokens, result}
   end
 

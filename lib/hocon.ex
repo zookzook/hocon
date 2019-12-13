@@ -67,6 +67,7 @@ defmodule Hocon do
     * `:convert_numerically_indexed` - if set to true then numerically-indexed objects are converted to arrays
     * `:strict_conversion` - if set to `true` then numerically-indexed objects are only converted to arrays
        if all keys are numbers
+    * `:resolver` - set to the module, which is responsible for loading the file/url resources. Default is `Hocon.FileResolver`
 
   ## Example
 

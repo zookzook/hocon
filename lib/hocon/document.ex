@@ -13,26 +13,26 @@ defmodule Hocon.Document do
     %Document{}
   end
 
-  def put(doc, key, value, tokens \\ [])
-  def put(doc, key, %Document{root: value}, tokens) do
-    put(doc, key, value, tokens)
+  def put(doc, key, value, tokens \\ [], opts \\ [])
+  def put(doc, key, %Document{root: value}, tokens, opts) do
+    put(doc, key, value, tokens, opts)
   end
-  def put(%Document{root: root}, key, value, tokens) do
+  def put(%Document{root: root}, key, value, tokens, opts) do
    path = key
           |> String.split(".")
           |> Enum.map(fn str -> String.trim(str) end)
           |> Enum.filter(fn str -> str != nil end)
 
-   {rest, root} = put_path(root, path, value, [], tokens)
+   {rest, root} = put_path(root, path, value, [], tokens, opts)
    {rest, %Document{root: root}}
   end
 
-  defp put_path(root, [key], nil, _visited, tokens) do
+  defp put_path(root, [key], nil, _visited, tokens, _opts) do
     with {_, result} <- Map.pop(root, key) do
       {tokens, result}
     end
   end
-  defp put_path(root, [key], value, visited, tokens) do
+  defp put_path(root, [key], value, visited, tokens, opts) do
     case Map.get(root, key) do
       nil   -> {tokens, Map.put(root, key, value)}
       other ->
@@ -42,15 +42,15 @@ defmodule Hocon.Document do
         value    = resolve_possible_self_references(root, abs_path, value)
         # If we have now a list, then check if another list follows. In this case we merging both arrays
         {tokens, value} = case is_list(value) do
-           true  -> Hocon.Parser.try_concat_array(tokens, value)
+           true  -> Hocon.Parser.try_concat_array(tokens, value, opts)
            false -> {tokens, value}
         end
 
         {tokens, merge(root, key, other, value)}
     end
   end
-  defp put_path(root, [head|tail], value, visited, tokens) do
-    {rest, value} = put_path(Map.get(root, head, %{}), tail, value, [head|visited], tokens)
+  defp put_path(root, [head|tail], value, visited, tokens, opts) do
+    {rest, value} = put_path(Map.get(root, head, %{}), tail, value, [head|visited], tokens, opts)
     {rest, Map.put(root, head, value)}
   end
 

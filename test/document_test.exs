@@ -9,26 +9,26 @@ defmodule DocumentTest do
 
   test "Use path expressions" do
     {_, result} = Document.new()
-                |> Document.put("a.b.c", "foo", [])
+                |> Document.put("a.b.c", "foo")
     assert %{"a" => %{"b" => %{"c" => "foo"}}}== result.root
   end
 
   test "Use multiple path expressions" do
-    {_, result} = Document.new() |> Document.put("a.b.c", "foo", [])
-    {_, result} = Document.put(result, "a.b.c", "bar", [])
+    {_, result} = Document.new() |> Document.put("a.b.c", "foo")
+    {_, result} = Document.put(result, "a.b.c", "bar")
 
     assert %{"a" => %{"b" => %{"c" => "bar"}}} == result.root
 
-    {_, result} = Document.new() |> Document.put("a.b.c", "foo", [])
-    {_, result} = Document.put(result, "a.b.d", "bar", [])
+    {_, result} = Document.new() |> Document.put("a.b.c", "foo")
+    {_, result} = Document.put(result, "a.b.d", "bar")
     assert %{"a" => %{"b" => %{"c" => "foo", "d" => "bar"}}}== result.root
 
-    {_, other } = Document.new() |> Document.put("x", "foo", [])
-    {_, other } = Document.put(other, "y", "bar", [])
+    {_, other } = Document.new() |> Document.put("x", "foo")
+    {_, other } = Document.put(other, "y", "bar")
 
-    {_, result} = Document.put(result, "b", other, [])
+    {_, result} = Document.put(result, "b", other)
 
-    assert  %{"a" => %{"b" => %{"c" => "foo", "d" => "bar"}}, "b" => %{"x" => "foo", "y" => "bar"}}== result.root
+    assert  %{"a" => %{"b" => %{"c" => "foo", "d" => "bar"}}, "b" => %{"x" => "foo", "y" => "bar"}} == result.root
   end
 
   test "object merging" do
