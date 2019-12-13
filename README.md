@@ -100,7 +100,7 @@ https://github.com/lightbend/config/blob/master/HOCON.md
 - [x] path expressions
 - [x] path as keys
 - [x] substitutions
-- [ ] includes
+- [x] includes
 - [x] conversion of numerically-indexed objects to arrays
 - [ ] allow URL for included files
 - [x] duration unit format
