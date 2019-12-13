@@ -13,7 +13,7 @@ defmodule Hocon do
 
   ## Units format
 
-  The Parser returns a map, because in Elixir it is a common use case to use pattern matching on maps to
+  The parser returns a map, because in Elixir it is a common use case to use pattern matching on maps to
   extract specific values and keys. Therefore the `Hocon.decode/2` function returns a map. To support
   interpreting a value with some family of units, you can call some conversion functions like `as_bytes/1`.
 
@@ -24,6 +24,35 @@ defmodule Hocon do
        iex> Hocon.as_bytes(limit)
        524288
 
+  It is possible to access the unit formats by a keypath, as well:
+  ## Example
+
+       iex> conf = ~s(a { b { c { limit : "512KB" } } })
+       iex> {:ok, map} = Hocon.decode(conf)
+       iex> Hocon.get_bytes(map, "a.b.c.limit")
+       524288
+       iex> Hocon.get_size(map, "a.b.c.limit")
+       512000
+
+  ## Include
+
+  HOCON supports including of other configuration files. The default implmentation uses the file systems, which
+  seems to be the most used use case. For other user cases you can implement the `Hocon.Resolver` behaviour and
+  call the `decode/2` function with `resolver: MyResolver` as an option.
+
+  ## Example
+
+  The file `include-1.conf` exists and has the following content:
+
+      { x : 10, y : ${a.x} }
+
+  In the case we use the Hocon.FileResolver (which is the default as well):
+
+      iex> conf = ~s({ a : { include "./test/data/include-1" } })
+      iex> Hocon.decode(conf, resolver: Hocon.FileResolver)
+      {:ok, %{"a" => %{"x" => 10, "y" => 10}}}
+
+  To minize the dependencies of other packages, a seperate package will be provided to resolve url resource.
   """
 
   alias Hocon.Parser
@@ -67,12 +96,11 @@ defmodule Hocon do
     * `:convert_numerically_indexed` - if set to true then numerically-indexed objects are converted to arrays
     * `:strict_conversion` - if set to `true` then numerically-indexed objects are only converted to arrays
        if all keys are numbers
-    * `:resolver` - set to the module, which is responsible for loading the file/url resources. Default is `Hocon.FileResolver`
+    * `:resolver` - set to the module, which is responsible for loading the file/url resources. The default is `Hocon.FileResolver`
 
   ## Example
 
       iex> conf = ~s(animal { favorite : "dog" }, key : \"\"\"${animal.favorite} is my favorite animal\"\"\")
-      "animal { favorite : \\"dog\\" }, key : \\"\\"\\"${animal.favorite} is my favorite animal\\"\\"\\""
       iex> Hocon.decode(conf)
       {:ok,
       %{"animal" => %{"favorite" => "dog"}, "key" => "dog is my favorite animal"}}

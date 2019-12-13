@@ -1,3 +1,11 @@
+## 0.1.4
+
+* Enhancements
+    * added support for duration nad period unit format
+    * added more tests 
+    * extended the documentation
+    * added support for includes 
+        
 ## 0.1.3
 
 * Enhancements

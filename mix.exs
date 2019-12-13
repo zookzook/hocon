@@ -1,7 +1,7 @@
 defmodule Hocon.MixProject do
   use Mix.Project
 
-  @version "0.1.3"
+  @version "0.1.4"
 
   def project do
     [
@@ -47,7 +47,7 @@ defmodule Hocon.MixProject do
   end
 
   defp docs() do
-    [main: "readme",
+    [main: "Hocon",
       name: "HOCON",
       extras: ["README.md"],
       source_ref: "v#{@version}",
