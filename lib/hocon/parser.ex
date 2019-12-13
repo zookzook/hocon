@@ -37,7 +37,6 @@ defmodule Hocon.Parser do
     end
   end
 
-
   def contact_rule([], result) do
     Enum.reverse(result)
   end
@@ -100,6 +99,40 @@ defmodule Hocon.Parser do
   def parse([nil | rest]) do
     {rest, nil}
   end
+  def parse(_other) do
+    throw {:error, "syntax error"}
+  end
+
+  ##
+  # loads and parse the content of the `file`
+  ##
+  defp load_configuration_file(file) do
+    with {:ok, conf}   <- load_contents_of_file(file),
+         {:ok, ast}    <- Tokenizer.decode(conf),
+         {[], result } <- ast
+                          |> contact_rule([])
+                          |> parse_root() do
+      {:ok, result}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  ##
+  # loads possible extension in combination with the filename
+  ##
+  defp load_contents_of_file(file) do
+    extenions = case Path.extname(file) do
+       ""  -> [".conf", ".json", ".properties"]
+       ext -> [ext]
+    end
+
+    file = Path.rootname(file)
+    case Enum.find(extenions, fn ext -> File.exists?(file <> ext) end) do
+      nil -> {:error, :not_found}
+      ext -> File.read(file <> ext)
+    end
+  end
 
   defp parse_object(tokens, result, is_root \\ false)
   defp parse_object([], result, true) do
@@ -153,8 +186,63 @@ defmodule Hocon.Parser do
     {rest, doc} = Document.put(result, to_string(key), value, rest)
     parse_object(rest, doc, root)
   end
+  defp parse_object([:include | rest], result, root) do
+    parse_include(rest, result, root)
+  end
   defp parse_object(_tokens, _result, _root) do
     throw {:error, "syntax error"}
+  end
+
+  ##
+  # parsing include
+  # * required()
+  # * file location
+  ##
+  defp parse_include([:required, :open_round | rest], result, root) do
+    {rest, file} = parse_file_location(rest)
+    result = case load_configuration_file(file) do
+      {:ok, doc} -> Document.merge(result, doc)
+      _          -> throw {:error, "file #{file} was not found"}
+    end
+    parse_required_close(rest, result, root)
+  end
+  defp parse_include(rest, result, root) do
+    {rest, file} = parse_file_location(rest)
+    result = case load_configuration_file(file) do
+      {:ok, doc} -> Document.merge(result, doc)
+      _          -> result
+    end
+    parse_object(rest, result, root)
+  end
+
+  def parse_required_close([:close_round | rest], result, root) do
+    parse_object(rest, result, root)
+  end
+  def parse_required_close(_tokens, _result, _root) do
+    throw {:error, "syntax error: ')' required "}
+  end
+
+  ##
+  # parsing the file location:
+  # * file(..)
+  # * url(..)
+  # * "..."
+  # * /path/to/somewhere
+  ##
+  defp parse_file_location([:file, :open_round, {:string, file}, :close_round | rest]) do
+    {rest, file}
+  end
+  defp parse_file_location([:url, :open_round, {:string, file}, :close_round | rest]) do
+    {rest, file}
+  end
+  defp parse_file_location([{:string, file} | rest]) do
+    {rest, file}
+  end
+  defp parse_file_location([{:unquoted_string, file} | rest]) do
+    {rest, file}
+  end
+  defp parse_file_location(_rest) do
+    throw {:error, "syntax error: file location required"}
   end
 
   def try_merge_object([:open_curly | rest], result) do

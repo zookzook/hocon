@@ -50,6 +50,12 @@ defmodule Hocon.Tokenizer do
   def tokenize(<<"}", rest::bits>>, original, skip, tokens) do
     tokenize(rest, original, skip + 1, Tokens.push(tokens, :close_curly))
   end
+  def tokenize(<<"(", rest::bits>>, original, skip, tokens) do
+    tokenize(rest, original, skip + 1, Tokens.push(tokens, :open_round))
+  end
+  def tokenize(<<")", rest::bits>>, original, skip, tokens) do
+    tokenize(rest, original, skip + 1, Tokens.push(tokens, :close_round))
+  end
   def tokenize(<<"[", rest::bits>>, original, skip, tokens) do
     tokenize(rest, original, skip + 1, Tokens.push(tokens, :open_square))
   end
@@ -177,21 +183,37 @@ defmodule Hocon.Tokenizer do
     empty_error(original, skip)
   end
 
+  defp process_unquoted_string("include", tokens) do
+    Tokens.push(tokens, :include)
+  end
+  defp process_unquoted_string("required", tokens) do
+    Tokens.push(tokens, :required)
+  end
+  defp process_unquoted_string("file", tokens) do
+    Tokens.push(tokens, :file)
+  end
+  defp process_unquoted_string("url", tokens) do
+    Tokens.push(tokens, :url)
+  end
+  defp process_unquoted_string(str, tokens) do
+    Tokens.push(tokens, {:unquoted_string, str})
+  end
+
   def unquoted_string(<<"/", rest::bits>> = string, original, skip, tokens, len) do
     case rest do
       <<"/", _rest::bits>> ->
         str = String.trim(binary_part(original, skip, len))
-        tokenize(string, original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
+        tokenize(string, original, skip + len, process_unquoted_string(str, tokens))
       _ -> unquoted_string(rest, original, skip, tokens, len + 1)
     end
   end
   def unquoted_string(<<char::utf8, rest::bits>>, original, skip, tokens, len) when char in '\s\n\t\r\v' do
     str = String.trim(binary_part(original, skip, len))
-    tokenize(<<char::utf8, rest::bits>>, original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
+    tokenize(<<char::utf8, rest::bits>>, original, skip + len, process_unquoted_string(str, tokens))
   end
-  def unquoted_string(<<char::utf8, rest::bits>>, original, skip, tokens, len) when char in '$"{}[]:=,+#`^?!@*&\\' do
+  def unquoted_string(<<char::utf8, rest::bits>>, original, skip, tokens, len) when char in '()$"{}[]:=,+#`^?!@*&\\' do
     str = String.trim(binary_part(original, skip, len))
-    tokenize(<<char::utf8, rest::bits>>, original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
+    tokenize(<<char::utf8, rest::bits>>, original, skip + len, process_unquoted_string(str, tokens))
   end
   def unquoted_string(<<"true", rest::bits>>, original, skip, tokens, 0) do
     tokenize(rest, original, skip + 4, Tokens.push(tokens, true))
@@ -207,7 +229,7 @@ defmodule Hocon.Tokenizer do
   end
   def unquoted_string("", original, skip, tokens, len) do
     str = String.trim(binary_part(original, skip, len))
-    tokenize("", original, skip + len, Tokens.push(tokens, {:unquoted_string, str}))
+    tokenize("", original, skip + len, process_unquoted_string(str, tokens))
   end
 
   def substitutions(<<"}", rest::bits>>, original, skip, tokens, len)  do
