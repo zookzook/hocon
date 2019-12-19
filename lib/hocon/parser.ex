@@ -106,12 +106,12 @@ defmodule Hocon.Parser do
   ##
   # loads and parse the content of the `file`
   ##
-  defp load_configuration_file(file, opts) do
+  defp load_configuration_file(schema, file, opts) do
 
     included_files = Keyword.get(opts, :included_files, [])
 
     with :ok <- check_recursion(file, included_files),
-         {:ok, conf}   <- load_contents_of_file(file, opts),
+         {:ok, conf}   <- load_contents_of_file(schema, file, opts),
          {:ok, ast}    <- Tokenizer.decode(conf),
          {[], result } <- ast
                           |> contact_rule([])
@@ -134,13 +134,26 @@ defmodule Hocon.Parser do
   ##
   # loads possible extension in combination with the filename
   ##
-  defp load_contents_of_file(file, opts) do
+  defp load_contents_of_file(:file, file, opts) do
     extenions = case Path.extname(file) do
        ""  -> [".conf", ".json", ".properties"]
        ext -> [ext]
     end
 
-    resolver = Keyword.get(opts, :resolver, Hocon.FileResolver)
+    resolver = Keyword.get(opts, :file_resolver, Hocon.FileResolver)
+    file     = Path.rootname(file)
+    case Enum.find(extenions, fn ext -> resolver.exists?(file <> ext) end) do
+      nil -> {:error, :not_found}
+      ext -> resolver.load(file <> ext)
+    end
+  end
+  defp load_contents_of_file(:url, file, opts) do
+    extenions = case Path.extname(file) do
+      ""  -> [".conf", ".json", ".properties"]
+      ext -> [ext]
+    end
+
+    resolver = Keyword.get(opts, :url_resolver, Hocon.FileResolver)
     file     = Path.rootname(file)
     case Enum.find(extenions, fn ext -> resolver.exists?(file <> ext) end) do
       nil -> {:error, :not_found}
@@ -212,16 +225,16 @@ defmodule Hocon.Parser do
   # * file location
   ##
   defp parse_include([:required, :open_round | rest], result, root, opts) do
-    {rest, file} = parse_file_location(rest)
-    result = case load_configuration_file(file, opts) do
+    {rest, schema, file} = parse_file_location(rest)
+    result = case load_configuration_file(schema, file, opts) do
       {:ok, doc} -> Document.merge(result, doc)
       _          -> throw {:error, "file #{file} was not found"}
     end
     parse_required_close(rest, result, root, opts)
   end
   defp parse_include(rest, result, root, opts) do
-    {rest, file} = parse_file_location(rest)
-    result = case load_configuration_file(file, opts) do
+    {rest, schema, file} = parse_file_location(rest)
+    result = case load_configuration_file(schema, file, opts) do
       {:ok, doc} -> Document.merge(result, doc)
       _          -> result
     end
@@ -243,16 +256,16 @@ defmodule Hocon.Parser do
   # * /path/to/somewhere
   ##
   defp parse_file_location([:file, :open_round, {:string, file}, :close_round | rest]) do
-    {rest, file}
+    {rest, :file, file}
   end
   defp parse_file_location([:url, :open_round, {:string, file}, :close_round | rest]) do
-    {rest, file}
+    {rest, :url, file}
   end
   defp parse_file_location([{:string, file} | rest]) do
-    {rest, file}
+    {rest, :file, file}
   end
   defp parse_file_location([{:unquoted_string, file} | rest]) do
-    {rest, file}
+    {rest, :file, file}
   end
   defp parse_file_location(_rest) do
     throw {:error, "syntax error: file location required"}

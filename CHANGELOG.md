@@ -1,3 +1,7 @@
+## 0.1.5
+* Enhancements
+    * added support for url resolvers
+
 ## 0.1.4
 
 * Enhancements
