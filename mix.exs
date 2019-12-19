@@ -50,7 +50,7 @@ defmodule Hocon.MixProject do
     [main: "Hocon",
       name: "HOCON",
       extras: ["README.md"],
-      source_ref: "v#{@version}",
+      source_ref: "#{@version}",
       canonical: "http://hexdocs.pm/hocon",
       source_url: "https://github.com/zookzook/hocon"]
   end

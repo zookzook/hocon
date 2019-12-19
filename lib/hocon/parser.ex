@@ -32,7 +32,7 @@ defmodule Hocon.Parser do
       with {[], result } <- ast
                             |> contact_rule([])
                             |> parse_root(opts) do
-        Document.convert(result, opts)
+        Document.convert(result, Keyword.put(opts, :included_files, []))
       end
     end
   end
@@ -107,17 +107,30 @@ defmodule Hocon.Parser do
   # loads and parse the content of the `file`
   ##
   defp load_configuration_file(file, opts) do
-    with {:ok, conf}   <- load_contents_of_file(file, opts),
+
+    included_files = Keyword.get(opts, :included_files, [])
+
+    with :ok <- check_recursion(file, included_files),
+         {:ok, conf}   <- load_contents_of_file(file, opts),
          {:ok, ast}    <- Tokenizer.decode(conf),
          {[], result } <- ast
                           |> contact_rule([])
-                          |> parse_root(opts) do
+                          |> parse_root(Keyword.put(opts, :included_files, [file | included_files])) do
       {:ok, result}
     else
       {:error, reason} -> {:error, reason}
     end
   end
 
+  defp check_recursion(_file, []) do
+    :ok
+  end
+  defp check_recursion(file, included_files) do
+    case Enum.any?(included_files, fn included_file -> included_file == file end) do
+       true  -> throw {:error, "File " <> file <> " already included."}
+       false -> :ok
+    end
+  end
   ##
   # loads possible extension in combination with the filename
   ##

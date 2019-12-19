@@ -6,7 +6,6 @@ defmodule Hocon do
   ## Example
 
       iex(1)> conf = ~s(animal { favorite : "dog" }, key : \"\"\"${animal.favorite} is my favorite animal\"\"\")
-      "animal { favorite : \\"dog\\" }, key : \\"\\"\\"${animal.favorite} is my favorite animal\\"\\"\\""
       iex(2)> Hocon.decode(conf)
       {:ok,
       %{"animal" => %{"favorite" => "dog"}, "key" => "dog is my favorite animal"}}
@@ -46,7 +45,7 @@ defmodule Hocon do
 
       { x : 10, y : ${a.x} }
 
-  In the case we use the Hocon.FileResolver (which is the default as well):
+  In the case we use the `Hocon.FileResolver` (which is the default as well):
 
       iex> conf = ~s({ a : { include "./test/data/include-1" } })
       iex> Hocon.decode(conf, resolver: Hocon.FileResolver)
