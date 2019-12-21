@@ -11,12 +11,24 @@ defmodule Parser.IncludeRequiredTest do
     assert catch_throw(Hocon.decode!(~s({ a : { include required\("foo.conf"\) } }))) == {:error, "file foo.conf was not found"}
   end
 
+  test "Parse include unquoted string - without extensions" do
+    conf = Hocon.decode!(~s({ a : { include ./test/data/include-1 } }))
+    assert %{"a" => %{"x" => 10, "y" => 10}} == conf
+  end
+
   test "Parse include statement - without extensions" do
     conf = Hocon.decode!(~s({ a : { include required\("./test/data/include-1"\) } }))
     assert %{"a" => %{"x" => 10, "y" => 10}} == conf
     conf = Hocon.decode!(~s({ a : { include required\("./test/data/include-2"\) } }))
     assert %{"a" => %{"x" => 10, "y" => 10}} == conf
     conf = Hocon.decode!(~s({ a : { include required\("./test/data/include-3"\) } }))
+    assert %{"a" => %{"x" => 10, "y" => 10}} == conf
+  end
+
+  test "Parse include url statement - without extensions" do
+    conf = Hocon.decode!(~s({ a : { include required\(url\("./test/data/include-1"\)\) } }))
+    assert %{"a" => %{"x" => 10, "y" => 10}} == conf
+    conf = Hocon.decode!(~s({ a : { include required\(file\("./test/data/include-2"\)\) } }))
     assert %{"a" => %{"x" => 10, "y" => 10}} == conf
   end
 

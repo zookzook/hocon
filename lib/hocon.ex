@@ -1,7 +1,7 @@
 defmodule Hocon do
   @moduledoc"""
 
-  This module paresed and decodes a [hocon](https://github.com/lightbend/config/blob/master/HOCON.md) configuration string.
+  This module pareses and decodes a [hocon](https://github.com/lightbend/config/blob/master/HOCON.md) configuration string.
 
   ## Example
 
@@ -36,8 +36,8 @@ defmodule Hocon do
   ## Include
 
   HOCON supports including of other configuration files. The default implmentation uses the file systems, which
-  seems to be the most used use case. For other user cases you can implement the `Hocon.Resolver` behaviour and
-  call the `decode/2` function with `resolver: MyResolver` as an option.
+  seems to be the most known use case. For other use cases you can implement the `Hocon.Resolver` behaviour and
+  call the `decode/2` function with `file_resolver: MyResolver` as an option.
 
   ## Example
 
@@ -48,10 +48,43 @@ defmodule Hocon do
   In the case we use the `Hocon.FileResolver` (which is the default as well):
 
       iex> conf = ~s({ a : { include "./test/data/include-1" } })
-      iex> Hocon.decode(conf, resolver: Hocon.FileResolver)
+      iex> Hocon.decode(conf, file_resolver: Hocon.FileResolver)
       {:ok, %{"a" => %{"x" => 10, "y" => 10}}}
 
-  To minize the dependencies of other packages, a seperate package will be provided to resolve url resource.
+  To minimize the dependencies of other packages, you need to include the `HoconUrlResolver` if you want to load
+  configuration from the internet:
+
+      def deps do
+      [
+        {:hocon_url_resolver, "~> 0.1.0"}
+      ]
+      end
+
+  or just implement a resolver like:
+
+  ## URL-Resolver with HTTPoison
+
+        defmodule HoconUrlResolver do
+        @behaviour Hocon.Resolver
+
+        @spec exists?(Path.t()) :: boolean
+        def exists?(url) do
+          case HTTPoison.head(url) do
+            {:ok, %HTTPoison.Response{status_code: 200}} -> true
+            {:ok, %HTTPoison.Response{status_code: 404}} -> false
+            {:error, _}                                  -> false
+          end
+        end
+
+        def load(url) do
+          case HTTPoison.get(url) do
+            {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> {:ok, body}
+            {:ok, %HTTPoison.Response{status_code: 404}}             -> {:error, "not found"}
+            {:error, %HTTPoison.Error{reason: reason}}               -> {:error, reason}
+          end
+        end
+
+      end
   """
 
   alias Hocon.Parser
@@ -95,7 +128,8 @@ defmodule Hocon do
     * `:convert_numerically_indexed` - if set to true then numerically-indexed objects are converted to arrays
     * `:strict_conversion` - if set to `true` then numerically-indexed objects are only converted to arrays
        if all keys are numbers
-    * `:resolver` - set to the module, which is responsible for loading the file/url resources. The default is `Hocon.FileResolver`
+    * `:file_resolver` - set to the module, which is responsible for loading the file resources. The default is `Hocon.FileResolver`
+    * `:url_resolver` - set to the module, which is responsible for loading the url resources. The default is `Hocon.FileResolver`
 
   ## Example
 
@@ -103,6 +137,8 @@ defmodule Hocon do
       iex> Hocon.decode(conf)
       {:ok,
       %{"animal" => %{"favorite" => "dog"}, "key" => "dog is my favorite animal"}}
+
+  ## Runtime-Configuration with HOCON
 
   Use can use the HOCON-Parser as a `Config.Provider` to load configuration during boot:
 
