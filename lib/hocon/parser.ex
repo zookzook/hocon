@@ -175,12 +175,12 @@ defmodule Hocon.Parser do
   end
   defp parse_object([{:string, key}, :open_curly | rest], result, root, opts) do
     {rest, value} = parse_object(rest, Document.new(), false, opts)
-    {rest, doc} = Document.put(result, key, value, rest, opts)
+    {rest, doc} = Document.put(result, {:string, key}, value, rest, opts)
     parse_object(rest, doc, root, opts)
   end
   defp parse_object([{:string, key}, :colon | rest], result, root, opts) do
     {rest, value} = parse(rest, opts)
-    {rest, doc} = Document.put(result, key, value, rest, opts)
+    {rest, doc} = Document.put(result, {:string, key}, value, rest, opts)
     parse_object(rest, doc, root, opts)
   end
   defp parse_object([{:unquoted_string, key}, :open_curly | rest], result, root, opts) do

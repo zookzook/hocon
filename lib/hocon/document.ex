@@ -17,6 +17,10 @@ defmodule Hocon.Document do
   def put(doc, key, %Document{root: value}, tokens, opts) do
     put(doc, key, value, tokens, opts)
   end
+  def put(%Document{root: root}, {:string, key}, value, tokens, opts) do
+    {rest, root} = put_path(root, [key], value, [], tokens, opts)
+    {rest, %Document{root: root}}
+  end
   def put(%Document{root: root}, key, value, tokens, opts) do
    path = key
           |> String.split(".")

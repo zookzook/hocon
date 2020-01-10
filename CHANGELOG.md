@@ -1,3 +1,7 @@
+## 0.1.6
+* Bugfix
+    * . in quoted strings are not interpreted any more
+    
 ## 0.1.5
 * Enhancements
     * added support for url resolvers
