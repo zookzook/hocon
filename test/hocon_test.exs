@@ -88,4 +88,7 @@ defmodule HoconTest do
     assert {:ok, %{"a" => [%{"list" => [%{"kind" => "Dog", "name" => "Greta"}, %{"kind" => "Dog", "name" => "Tom"}]}]}} == Hocon.decode(~s(a : [ { list : [{ name : Greta, kind : Dog }, { name : Tom, kind : Dog }]}]))
   end
 
+  test "heading /" do
+    assert {:ok, %{"a" => "/2019/gfx/image.png"}} == Hocon.decode(~s(a : /2019/gfx/image.png))
+  end
 end

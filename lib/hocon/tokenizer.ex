@@ -32,11 +32,8 @@ defmodule Hocon.Tokenizer do
   def tokenize(<<"#", rest::bits>>, original, skip, tokens) do
     skip_comment(rest, original, skip + 1, tokens)
   end
-  def tokenize(<<"/", rest::bits>>, original, skip, tokens) do
-    case rest do
-      <<"/", rest::bits>> -> skip_comment(rest, original, skip + 2, tokens)
-      _                   -> tokenize(rest, original, skip + 1, tokens) ## todo error
-    end
+  def tokenize(<<"//", rest::bits>> = string, original, skip, tokens) do
+    skip_comment(rest, original, skip + 2, tokens)
   end
   def tokenize(<<"+=", rest::bits>>, original, skip, tokens) do
     tokenize(rest, original, skip + 2, Tokens.push(tokens, :concat_array))

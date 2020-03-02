@@ -55,8 +55,8 @@ defmodule TokenizerTest do
 
   test "unquoted strings" do
     assert {:ok, [{:unquoted_string, "this"}, :open_square, :close_square, {:unquoted_string, "string"}]} == Tokenizer.decode(~s(this [] string))
-    assert {:ok, [{:unquoted_string, "path/to/file"}]} == Tokenizer.decode(~s(/path/to/file))
-    assert {:ok, [{:unquoted_string, "path/to"}]} == Tokenizer.decode(~s(/path/to// now we have a comment))
+    assert {:ok, [{:unquoted_string, "/path/to/file"}]} == Tokenizer.decode(~s(/path/to/file))
+    assert {:ok, [{:unquoted_string, "/path/to"}]} == Tokenizer.decode(~s(/path/to// now we have a comment))
   end
 
   test "Tokenize numbers" do

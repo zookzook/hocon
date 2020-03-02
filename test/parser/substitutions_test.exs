@@ -40,7 +40,7 @@ defmodule Parser.SubstitutionsTest do
     assert {:ok, %{"path" => "/home/greta"}} == Hocon.decode(~s(path : ${MY_HOME}))
     System.put_env("MY_HOME", "/home")
     assert {:ok, %{"path" => "/home/greta"}} == Hocon.decode(~s(path : ${MY_HOME}\n path : ${path}"/greta"))
-    assert {:ok, %{"path" => ["/home", "usr/bin"]}} == Hocon.decode(~s(path : [${MY_HOME}]\n path : ${path} [ /usr/bin ]))
+    assert {:ok, %{"path" => ["/home", "/usr/bin"]}} == Hocon.decode(~s(path : [${MY_HOME}]\n path : ${path} [ /usr/bin ]))
   end
 
   test "Parsing  += field separator" do
