@@ -1,3 +1,7 @@
+## 0.1.8
+* Bugfix
+    * leading / in unquoted strings are missing
+
 ## 0.1.7
 * Bugfix
     * nested documents in arrays are not converted to maps
