@@ -167,6 +167,13 @@ defmodule Hocon.Document do
   defp convert_nested_maps(original, key, value, visited, opts) when is_map(value) do
     {key, convert_map(original, value, visited, opts)}
   end
+  defp convert_nested_maps(original, key, xs, visited, opts) when is_list(xs) do
+    {key, Enum.map(xs, fn
+      %Document{root: value}   -> convert_map(original, value, visited, opts)
+      value when is_map(value) -> convert_map(original, value, visited, opts)
+      value -> value
+    end)}
+  end
   defp convert_nested_maps(_original, key, value, _visited, _opts) do
     {key, value}
   end

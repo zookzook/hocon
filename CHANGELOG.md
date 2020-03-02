@@ -1,3 +1,7 @@
+## 0.1.7
+* Bugfix
+    * nested documents in arrays are not converted to maps
+    
 ## 0.1.6
 * Bugfix
     * . in quoted strings are not interpreted any more

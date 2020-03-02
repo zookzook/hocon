@@ -83,5 +83,9 @@ defmodule HoconTest do
   end
 
 
+  test "nested documents in arrays" do
+    assert {:ok, %{"a" => [%{"kind" => "Dog", "name" => "Greta"}, %{"kind" => "Dog", "name" => "Tom"}]}} == Hocon.decode(~s(a : [ { name : Greta, kind : Dog }, { name : Tom, kind : Dog } ]))
+    assert {:ok, %{"a" => [%{"list" => [%{"kind" => "Dog", "name" => "Greta"}, %{"kind" => "Dog", "name" => "Tom"}]}]}} == Hocon.decode(~s(a : [ { list : [{ name : Greta, kind : Dog }, { name : Tom, kind : Dog }]}]))
+  end
 
 end
