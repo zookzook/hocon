@@ -55,4 +55,8 @@ defmodule Parser.SubstitutionsTest do
     assert {:ok, %{"bar" => %{"baz" => "", "fooz" => 42}}} == Hocon.decode(~s(bar : { fooz : 42, baz : ${?bar.foo}}))
   end
 
+  test "Parsing substitutions by using assigns" do
+    assigns = %{"THE_HOME" => "/home/hocon"}
+    assert {:ok, %{"path" => "/home/hocon"}} == Hocon.decode(~s(path : ${?THE_HOME}), assigns: assigns)
+  end
 end

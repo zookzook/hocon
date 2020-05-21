@@ -192,6 +192,9 @@ defmodule Hocon.Tokenizer do
   defp process_unquoted_string("url", tokens) do
     Tokens.push(tokens, :url)
   end
+  defp process_unquoted_string("", tokens) do
+    tokens
+  end
   defp process_unquoted_string(str, tokens) do
     Tokens.push(tokens, {:unquoted_string, str})
   end
@@ -204,7 +207,18 @@ defmodule Hocon.Tokenizer do
       _ -> unquoted_string(rest, original, skip, tokens, len + 1)
     end
   end
-  def unquoted_string(<<char::utf8, rest::bits>>, original, skip, tokens, len) when char in '\s\n\t\r\v' do
+  def unquoted_string(<<char::utf8, rest::bits>>, original, skip, tokens, len) when char in '\s\t' do
+    str = String.trim(binary_part(original, skip, len))
+    case str do
+      "include" -> tokenize(<<char::utf8, rest::bits>>, original, skip + len, process_unquoted_string(str, tokens))
+      "required" -> tokenize(<<char::utf8, rest::bits>>, original, skip + len, process_unquoted_string(str, tokens))
+      "file" -> tokenize(<<char::utf8, rest::bits>>, original, skip + len, process_unquoted_string(str, tokens))
+      "url" -> tokenize(<<char::utf8, rest::bits>>, original, skip + len, process_unquoted_string(str, tokens))
+      _other ->
+        unquoted_string(rest, original, skip + len + 1, Tokens.push(process_unquoted_string(str, tokens), :ws), 0)
+    end
+  end
+  def unquoted_string(<<char::utf8, rest::bits>>, original, skip, tokens, len) when char in '\n\r\v' do
     str = String.trim(binary_part(original, skip, len))
     tokenize(<<char::utf8, rest::bits>>, original, skip + len, process_unquoted_string(str, tokens))
   end

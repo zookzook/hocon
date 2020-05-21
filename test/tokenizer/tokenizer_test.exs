@@ -106,4 +106,32 @@ defmodule TokenizerTest do
     assert catch_throw(Tokenizer.decode(~s(key : ${animal.favorite))) == {:position, 6}
     assert catch_throw(Tokenizer.decode(~s(key : ${animal. favorite}))) == {:position, 6}
   end
+
+  test "Tokenize unquoted strings with numbers" do
+    assert {
+             :ok,
+             [
+               {:unquoted_string, "title"},
+               :colon,
+               {:unquoted_string, "Freizeit"},
+               :ws,
+               {:unquoted_string, "2018"},
+               :ws,
+               {:unquoted_string, "|"},
+               :ws,
+               {:unquoted_string, "15."},
+               :ws,
+               {:unquoted_string, "Juli"},
+               :ws,
+               {:unquoted_string, "2018"}
+             ]
+           } == Tokenizer.decode(~s(title: Freizeit 2018 | 15. Juli 2018))
+    assert {
+             :ok,
+             [{:unquoted_string, "limit"}, :open_curly, {:unquoted_string, "max"}, :colon, 10, :close_curly, :comma, {:unquoted_string, "key"}, :colon, {:unquoted_string, "Max"}, :ws, {:unquoted_string, "limit"}, :ws, {:unquoted_string, "is"}, :ws, {:unquoted_string, "${limit.max}"}]
+           } == Tokenizer.decode(~s"limit { max : 10 }, key : Max limit is ${limit.max}")
+
+
+    #
+  end
 end

@@ -13,6 +13,7 @@ defmodule Hocon.Parser do
     * `:strict_conversion` - if set to `true` then numerically-indexed objects are only converted to arrays
        if all keys are numbers
     * `:file_resolver` - a module which uses the `Hocon.Resolver` behaviour. If missing the `Hocon.FileResolver` is used as default.
+    * `:keywords` -
   """
   def decode(string, opts \\ []) do
     try do

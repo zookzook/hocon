@@ -143,24 +143,24 @@ defmodule Hocon.Document do
     Map.to_list(current)
     |> Enum.map(fn {key, value} -> convert_numerically_indexed(key, value, opts) end)
     |> Enum.map(fn
-      {key, {:unquoted_string, value}} -> replace_all_substitutions(original, key, value, visited)
+      {key, {:unquoted_string, value}} -> replace_all_substitutions(original, key, value, visited, opts)
        other                           -> other
     end)
     |> Enum.map(fn {key, value} -> convert_nested_maps(original, key, value, push_key(key, visited), opts) end)
-    |> Enum.map(fn {key, value} -> resolve_unquoted_strings_in_arrays(original, key, value, visited) end)
+    |> Enum.map(fn {key, value} -> resolve_unquoted_strings_in_arrays(original, key, value, visited, opts) end)
     |> Enum.into(%{})
   end
 
-  defp resolve_unquoted_strings_in_arrays(original, key, value, visited) when is_list(value) do
+  defp resolve_unquoted_strings_in_arrays(original, key, value, visited, opts) when is_list(value) do
     value = Enum.map(value, fn
-      {:unquoted_string, subs} -> with {_, value} <- replace_all_substitutions(original, key, subs, visited) do
+      {:unquoted_string, subs} -> with {_, value} <- replace_all_substitutions(original, key, subs, visited, opts) do
                                     value
                                   end
       other -> other
     end)
     {key, value}
   end
-  defp resolve_unquoted_strings_in_arrays(_original, key, value, _visited) do
+  defp resolve_unquoted_strings_in_arrays(_original, key, value, _visited, _opts) do
     {key, value}
   end
 
@@ -185,8 +185,8 @@ defmodule Hocon.Document do
     [head <> "." <> key|stack]
   end
 
-  defp replace_all_substitutions(original, key, value, visited) do
-    with {:ok, value} <- resolve_substitutions(original, value, visited) do
+  defp replace_all_substitutions(original, key, value, visited, opts) do
+    with {:ok, value} <- resolve_substitutions(original, value, visited, opts) do
       {key, value}
     end
   end
@@ -235,27 +235,27 @@ defmodule Hocon.Document do
     |> Enum.map(fn {_,value} -> value end)
   end
 
-  defp get(root, keypath, visited) when is_binary(keypath) do
+  defp get(root, keypath, visited, opts) when is_binary(keypath) do
     keypath = keypath
           |> String.split(".")
           |> Enum.map(fn str -> String.trim(str) end)
-    get(root, root, keypath, visited)
+    get(root, root, keypath, visited, opts)
   end
 
-  defp get(root, {:unquoted_string, value}, [], visited) do
-    resolve_substitutions(root, value, visited)
+  defp get(root, {:unquoted_string, value}, [], visited, opts) do
+    resolve_substitutions(root, value, visited, opts)
   end
 
-  defp get(_root, nil, keypath, visited) do
+  defp get(_root, nil, keypath, visited, _opts) do
     {:not_found, (Enum.reverse(visited) ++ keypath) |> Enum.join(".")}
   end
 
-  defp get(_root, value, [], _visited) do
+  defp get(_root, value, [], _visited, _opts) do
     {:ok, value}
   end
 
-  defp get(root, object, [key|rest], visited) when is_map(object) do
-    get(root, Map.get(object, key), rest, push_key(key, visited))
+  defp get(root, object, [key|rest], visited, opts) when is_map(object) do
+    get(root, Map.get(object, key), rest, push_key(key, visited), opts)
   end
 
   def get_raw(root, keypath, visited \\ []) when is_binary(keypath) do
@@ -280,18 +280,18 @@ defmodule Hocon.Document do
   ##
   # resolve the substitutions in the `value` one after the other
   ##
-  defp resolve_substitutions(root, value, visited) do
+  defp resolve_substitutions(root, value, visited, opts) do
 
     with [substituions] <- Regex.run(~r/\$\{.*?\}/, value),   ## find first substitution string
          {kind, path} <- get_path(substituions),                      ## extracts content
          :ok <- check_circle(path, visited),                  ## check for circles
-         {:ok, new_value} <- get_or_fetch_env(get(root, path, visited), path, kind) do ## fetch value or try to find an environment variable
+         {:ok, new_value} <- get_or_fetch_env(get(root, path, visited, opts), path, kind, opts) do ## fetch value or try to find an environment variable
 
         case value == substituions do
          true  -> {:ok, new_value}  ## Single substitution: ${foo} == ${foo}
          false ->                   ## Multiple substitutions within a string: ${foo} ${bar} == ${foo}
            value = String.replace(value, substituions, to_string(new_value))
-           resolve_substitutions(root, value, visited)
+           resolve_substitutions(root, value, visited, opts)
       end
     else
       nil                      -> {:ok, value}
@@ -301,18 +301,38 @@ defmodule Hocon.Document do
 
   end
 
-  def get_or_fetch_env({:ok, _} = result, _path, _kind), do: result
-  def get_or_fetch_env({:not_found, _}, path, :mandatory) do
-    case System.fetch_env(path) do
+  defp get_or_fetch_env({:ok, _} = result, _path, _kind, _opts), do: result
+  defp get_or_fetch_env({:not_found, _}, key, :mandatory, opts) do
+    case System.fetch_env(key) do
       {:ok, result} -> {:ok, result}
-        _           -> {:not_found, path}
+        _           -> get_or_fetch_assign(key, :mandatory, Keyword.get(opts, :assigns))
     end
   end
-  def get_or_fetch_env({:not_found, _}, path, :optional) do
-    case System.fetch_env(path) do
+  defp get_or_fetch_env({:not_found, _}, key, :optional, opts) do
+    case System.fetch_env(key) do
+      {:ok, result} -> {:ok, result}
+      _             -> get_or_fetch_assign(key, :optional, Keyword.get(opts, :assigns))
+    end
+  end
+
+  ## Looks for the key in the assigns map/keyword
+  defp get_or_fetch_assign(key, :mandatory, assigns) when is_map(assigns) do
+    case Map.fetch(assigns, key) do
+      {:ok, result} -> {:ok, result}
+      _             -> {:not_found, key}
+    end
+  end
+  defp get_or_fetch_assign(key, :mandatory, _other) do
+    {:not_found, key}
+  end
+  defp get_or_fetch_assign(key, :optional, assigns) when is_map(assigns) do
+    case Map.fetch(assigns, key) do
       {:ok, result} -> {:ok, result}
       _             -> {:ok, ""}
     end
+  end
+  defp get_or_fetch_assign(_key, :optional, _other) do
+    {:ok, ""}
   end
 
   ##
